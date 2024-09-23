@@ -16,11 +16,16 @@ function avia_modify_post_grid_query_asc( $query ) {
 
 
  add_filter('the_content', 'ac_blog_back');
-function ac_blog_back($content){
+ function ac_blog_back($content){
     global $post;
     $is_enfold_builder_active = get_post_meta($post->ID, '_aviaLayoutBuilder_active', true);
 
-    $output = "";
+     // Check if the post type is 'service', and if so, return the content unmodified
+     if ('service' === get_post_type($post)) {
+         return $content;
+     }
+
+     $output = "";
     if (is_single() && 'active' === $is_enfold_builder_active){
         $output .= "<div class='container'>";
         $output .= "<div class='content u-mb-0 u-pb-0'>";
