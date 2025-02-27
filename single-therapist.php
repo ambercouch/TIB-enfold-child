@@ -257,8 +257,106 @@ do_action('ava_after_main_title');
 
 					$close_header 	= '</header>';
 
-					$content_output  = '<div class="entry-content" ' . avia_markup_helper(array('context' => 'entry_content', 'echo' => false)) . '>';
+
+// Ensure this is inside The Loop, or use a specific post ID
+            $post_id = get_the_ID(); // Get the current post ID
+
+// Retrieve the custom meta values
+            $full_title = get_the_title();
+            $words = explode(' ', trim($full_title));
+            $first_name = $words[0] ?? '';
+
+            $staff_link = get_field('staff_link');
+            $description = get_post_meta($post_id, 'description', true);
+            $active_status = get_post_meta($post_id, 'active_post', true);
+
+// Display the values
+            if (!empty($staff_link))
+            {
+                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($staff_link) . '" target="_blank">Book a session with '.$first_name.'</a></p>';
+            }else{
+                $staff_link_output = '';
+            }
+
+            if (!empty($description))
+            {
+                //$description_output = '<p><strong>Description:</strong> ' . esc_html($description) . '</p>';
+            }else{
+                $description_output = '';
+            }
+
+
+            $service_fees = get_field('service_fees');
+            $service_fees_output = '';
+
+
+
+            if (!empty($service_fees)) {
+                $service_fees_output = '<h3 class="u-mt">Services and Fees</h3>';
+                $service_fees_output .= '<table class="u-mt c-service-fees">';
+                $service_fees_output .= '<thead class="c-service-fees__header">';
+                $service_fees_output .= '<tr class="c-service-fees__row">';
+                $service_fees_output .= '<th class="c-service-fees__cell c-service-fees__cell--header">Service</th>';
+                $service_fees_output .= '<th class="c-service-fees__cell c-service-fees__cell--header">Fee</th>';
+                $service_fees_output .= '</tr>';
+                $service_fees_output .= '</thead>';
+                $service_fees_output .= '<tbody class="c-service-fees__body">';
+
+                $notes = []; // Collect all notes
+
+                foreach ($service_fees as $service) {
+                    $has_note = !empty($service['service_notes']);
+                    $service_fees_output .= '<tr class="c-service-fees__row">';
+                    $service_fees_output .= '<td class="c-service-fees__cell c-service-fees__cell--title">'
+                        . esc_html($service['service_name'])
+                        . ($has_note ? ' *' : '') // Add asterisk if there's a note
+                        . '</td>';
+                    $service_fees_output .= '<td class="c-service-fees__cell c-service-fees__cell--fee"><b>£'
+                        . esc_html($service['service_fee'])
+                        . '</b></td>';
+                    $service_fees_output .= '</tr>';
+
+                    if ($has_note) {
+                        $notes[] = $service['service_notes']; // Add note to the notes array
+                    }
+                }
+
+                $service_fees_output .= '</tbody>';
+                $service_fees_output .= '</table>';
+
+                // Add notes below the table if any
+                if (!empty($notes)) {
+                    $service_fees_output .= '<ul class="c-service-fees__notes">';
+                    foreach ($notes as $index => $note) {
+                        $asterisks = str_repeat('*', $index + 1); // Generate the appropriate number of asterisks
+                        $service_fees_output .= '<li class="c-service-fees__note">' . $asterisks . ' ' . esc_html($note) . '</li>';
+                    }
+                    $service_fees_output .= '</ul>';
+                }
+            }
+
+
+
+// Echo the output if needed
+
+
+
+
+
+
+
+            $content_output  = '<div class="entry-content" ' . avia_markup_helper(array('context' => 'entry_content', 'echo' => false)) . '>';
 					$content_output .=		$content;
+            $content_output .= $staff_link_output;
+					$content_output .= '</div>';
+					$content_output .= '<div class="content-extras">';
+					$content_output .= '';
+
+
+					$content_output .= $service_fees_output;
+
+					$content_output .= $staff_link_output;
+
 					$content_output .= '</div>';
 
 
