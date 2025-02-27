@@ -190,18 +190,18 @@ function register_document_type_taxonomy() {
 }
 add_action( 'init', 'register_document_type_taxonomy', 0 );
 
-// Register Custom Tag Taxonomy Resource (Multiple Selection)
-function register_resource_taxonomy() {
+// Register Custom Tag Taxonomy Provision (Multiple Selection)
+function register_provision_taxonomy() {
     $labels = array(
-        'name'              => _x( 'Resources', 'taxonomy general name', 'actib' ),
-        'singular_name'     => _x( 'Resource', 'taxonomy singular name', 'actib' ),
-        'search_items'      => __( 'Search Resources', 'actib' ),
-        'all_items'         => __( 'All Resources', 'actib' ),
-        'edit_item'         => __( 'Edit Resource', 'actib' ),
-        'update_item'       => __( 'Update Resource', 'actib' ),
-        'add_new_item'      => __( 'Add New Resource', 'actib' ),
-        'new_item_name'     => __( 'New Resource Name', 'actib' ),
-        'menu_name'         => __( 'Resources', 'actib' ),
+        'name'              => _x( 'Provisions', 'taxonomy general name', 'actib' ),
+        'singular_name'     => _x( 'Provision', 'taxonomy singular name', 'actib' ),
+        'search_items'      => __( 'Search Provisions', 'actib' ),
+        'all_items'         => __( 'All Provisions', 'actib' ),
+        'edit_item'         => __( 'Edit Provision', 'actib' ),
+        'update_item'       => __( 'Update Provision', 'actib' ),
+        'add_new_item'      => __( 'Add New Provision', 'actib' ),
+        'new_item_name'     => __( 'New Provision Name', 'actib' ),
+        'menu_name'         => __( 'Provisions', 'actib' ),
     );
     $args = array(
         'labels'            => $labels,
@@ -212,9 +212,9 @@ function register_resource_taxonomy() {
         'show_in_nav_menus' => true,
         'show_tagcloud'     => true,
     );
-    register_taxonomy( 'resource', array( 'documents' ), $args );
+    register_taxonomy( 'provision', array( 'documents' ), $args );
 }
-add_action( 'init', 'register_resource_taxonomy', 0 );
+add_action( 'init', 'register_provision_taxonomy', 0 );
 
 // Register Custom Taxonomy Audience
 function register_audience_taxonomy() {
