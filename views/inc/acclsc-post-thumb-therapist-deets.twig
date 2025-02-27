@@ -1,0 +1,162 @@
+<article id="post-{{ post.id }}" {{ fn('post_class', 'c-accl-post-list__post-thumb--therapist-deets') }}>
+  <div class="c-accl-post-thumb--therapist-deets ">
+    <div class="c-accl-post-thumb--therapist-deets c-flex-container">
+    {% if post.thumbnail %}
+    <div class="post-thumbnail c-accl-post-thumb__feature-image--therapist-deets">
+      <a href="{{ post.link }}" class="c-accl-post-thumb__feature-image-link" >
+        <img src="{{ post.thumbnail.src }}" />
+      </a>
+      <hr class="u-mt">
+      {% if post.meta('staff_link') %}
+        <p class="u-mt-0" >Book a session with {{ post.title | split(' ') | first }}</p>
+        <p>
+          <a class="c-btn c-btn--book" href="{{ post.meta('staff_link') }}" >Book Now</a>
+        </p>
+      {% endif %}
+    </div><!-- .post-thumbnail -->
+    {% endif %}
+      <div class="c-accl-post-thumb__content">
+        <header  class="entry-header c-accl-post-thumb__header--therapist-deets">
+          <h2 class="entry-title c-accl-post-thumb__heading--therapist-deets">
+            <a href="{{ post.link }}" class="c-accl-post-thumb__link" rel="bookmark">
+              <span class="c-accl-post-thumb__link-title">{{ post.title }}</span>
+            </a>
+          </h2>
+          {% if post.meta('years_experiance') %}
+            <div class="c-label">
+              <div class="c-label__text">
+                <b>{{ post.meta('years_experiance') }}</b> <small>Years experience</small>
+              </div>
+
+            </div>
+
+          {% endif %}
+        </header>
+
+
+
+        {% set raw_content = post.content|striptags %}
+        {% set cleaned_content = raw_content|replace({'Introduction': ''})|trim %}
+        {% set paragraphs = cleaned_content|split('\n') %}
+
+        {% set first_paragraph = '' %}
+        {% for para in paragraphs %}
+          {% if para|trim is not empty and first_paragraph == '' %}
+            {% set first_paragraph = para %}
+          {% endif %}
+        {% endfor %}
+
+        {% set description = post.meta('description') ?: post.excerpt ?: first_paragraph|slice(0, 100) ~ '...' %}
+
+        {% if description %}
+          <div class="c-accl-post-thumb__description">
+            {{ description | wpautop }}
+          </div>
+          <p>
+            <a href="{{ post.link }}" class="c-accl-post-thumb__link--more" rel="bookmark">
+              More about {{ post.title | split(' ') | first }}
+            </a>
+          </p>
+        {% endif %}
+
+
+
+        {% set terms = post.terms('service') %}
+        {% if terms %}
+          <h5 class="u-mt u-mb-t">Available to assist:</h5>
+          <p class="u-mt-0">{{ terms | join(', ') }}</p>
+        {% endif %}
+
+        {% set locoation_terms = post.terms('location') %}
+        {% if locoation_terms %}
+          <h5 class="u-mt u-mb-t">Appointment Locations:</h5>
+          <p class="u-mt-0">{{ locoation_terms | join(', ') }}</p>
+        {% endif %}
+
+        {% set availability = post.meta('availability') %}
+
+        {% if availability is not empty %}
+          <h5 class="u-mt u-mb-t">Appointment Availability:</h5>
+          {# Extract only the labels from the ACF array #}
+          {% set availability_labels = availability | map(day => day.label) %}
+
+          {% set weekdays = ['Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays'] %}
+          {% set weekends = ['Saturdays', 'Sundays'] %}
+
+          {# Check if all weekdays are selected #}
+          {% set has_all_weekdays = true %}
+          {% for day in weekdays %}
+            {% if day not in availability_labels %}
+              {% set has_all_weekdays = false %}
+            {% endif %}
+          {% endfor %}
+
+          {# Check if all weekends are selected #}
+          {% set has_all_weekends = true %}
+          {% for day in weekends %}
+            {% if day not in availability_labels %}
+              {% set has_all_weekends = false %}
+            {% endif %}
+          {% endfor %}
+
+          {# Check if all days are selected #}
+          {% set is_daily = availability_labels | length == 7 %}
+
+          {# Determine output #}
+          {% if is_daily %}
+            <p class="u-mt-0">Daily</p>
+          {% elseif has_all_weekdays and has_all_weekends %}
+            <p class="u-mt-0">Daily <small>(Monday to Sunday)</small></p>
+          {% elseif has_all_weekdays %}
+            <p class="u-mt-0">Week days <small>(Monday to Friday)</small></p>
+          {% elseif has_all_weekends %}
+            <p class="u-mt-0">Weekends only</p>
+          {% else %}
+            <p class="u-mt-0">{{ availability_labels | join(', ') }}</p>
+          {% endif %}
+        {% else %}
+          <h5 class="u-mt u-mb-t">Appointment Availability:</h5>
+          <p class="u-mt-0">Availability not specified</p>
+        {% endif %}
+
+
+
+
+        {% if post.meta('service_fees') is not empty %}
+          {% set service_fees = post.meta('service_fees') %}
+          {% set fees = service_fees | map(fee => fee.service_fee | default(0)) %}
+          {% set sorted_fees = fees | sort %}
+          {% set lowest_fee = sorted_fees[0] %}
+
+          {# Check if all fees are the same manually #}
+          {% set all_same = true %}
+          {% for fee in fees %}
+            {% if fee != lowest_fee %}
+              {% set all_same = false %}
+            {% endif %}
+          {% endfor %}
+
+          {# Output based on whether all fees are the same #}
+          {% if all_same %}
+            <h5 class="u-mt u-mb-t">Fees:</h5>
+            <p class="u-mt-0" > £{{ lowest_fee }}</p>
+          {% else %}
+            <h5 class="u-mt u-mb-t">Fees start from:</h5>
+            <p class="u-mt-0" >£{{ lowest_fee }}</p>
+          {% endif %}
+        {% else %}
+          <h5 class="u-mt u-mb-t">Fees:</h5>
+          <p class="u-mt-0" >Fees not specified.</p>
+        {% endif %}
+
+
+
+
+
+
+      </div>
+    </div>
+
+
+  </div>
+</article>

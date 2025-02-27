@@ -261,6 +261,24 @@ svg a:hover{
     margin: 0 3px;
 }
 
+.c-btn--book{
+    display: block;
+    background: #2c5c88;
+    color: white !important;
+    text-decoration: none;
+    padding: 12px 12px;
+    margin: 0;
+}
+
+.c-btn--staff-link{
+    display: inline-block;
+    background: #2c5c88;
+    color: white !important;
+    text-decoration: none;
+    padding: 12px 12px;
+    margin: 0 auto;
+}
+
 
 .c-mchimp-signup__heading{
     margin-bottom: 12px;
@@ -690,4 +708,101 @@ svg a:hover{
     padding: 24px;
     border: solid 1px;
     margin-bottom:24px;
+}
+.c-accl-post-thumb--therapist-deets{
+    box-shadow : 0 0 15px rgba(50, 50, 93, .1), 0 5px 15px rgba(0, 0, 0, .07);
+}
+
+.c-accl-post-thumb__header--therapist-deets{
+    margin-bottom: 1.5em;
+    background: transparent;
+    padding: 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 1em;
+    align-items: center;
+}
+.c-accl-post-thumb__heading--therapist-deets{
+    margin-bottom: 0;
+    font-size: 1.2rem;
+}
+
+.c-accl-post-thumb__feature-image img {
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    width: 100%;
+}
+.c-accl-post-thumb__feature-image{
+    aspect-ratio: 1;
+    overflow: hidden;
+}
+
+
+.c-accl-post-list__post-thumb--therapist-deets{
+    padding : 0px;
+    background: #fff;
+    margin-bottom: 48px;
+    border-radius: 3px;
+}
+
+.c-accl-post-thumb__content{
+    padding : 24px;
+    border-left: solid 1px #000;
+}
+
+.c-accl-post-thumb__feature-image--therapist-deets{
+     width: 30%;
+    padding: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+ }
+
+.c-accl-post-thumb__feature-image--therapist-deets img{
+    display: block;
+    border-radius: 999px;
+}
+.c-accl-post-thumb__link--more{
+    text-decoration: none;
+}
+
+.c-accl-post-thumb__content{
+    width: 70%;
+}
+.c-service-fees{
+    margin-bottom: 0 !important;
+}
+.c-service-fees td{
+    font-size: 1.15rem !important;
+}
+tr.c-service-fees__row:nth-child(even) td{
+    background: #fafafa !important;
+}
+
+.c-service-fees__notes{
+    list-style: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    font-size: 0.8em;
+}
+.c-service-fees__note{
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+.c-service-fees__cell--header{
+    background: #2c5c88;
+    color: #fff;
+}
+
+.c-label{
+    padding: 6px 9px;
+    background: #2c5c88;
+    color: #fff;
+    display: inline-block;
+}
+.c-label *{
+    color: #fff !important;
 }
