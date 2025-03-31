@@ -671,21 +671,7 @@ svg a:hover{
     color: #fff !important;
 }
 
-.c-btn--primary{
-    background: #ffe464;
-    border: 1px solid #cdd4dd;
-    text-align: center;
-    white-space: nowrap;
-    border-radius: 5px;
-    padding: 9px;
-    cursor: pointer;
-    transition: background 0.3s ease-in-out;
-    text-decoration: none;
-}
-.c-btn--primary:hover{
-    text-decoration: none;
-    background: darken(#ffe464, 10%);
-}
+
 
 .c-staff-notice__header{
     padding : 0;
@@ -759,10 +745,15 @@ svg a:hover{
     justify-content: center;
     text-align: center;
  }
+#specalist .c-accl-post-thumb__feature-image--therapist-deets{
+    padding: 12px;
+}
 
 .c-accl-post-thumb__feature-image--therapist-deets img{
     display: block;
     border-radius: 999px;
+    aspect-ratio: 1;
+    object-fit: cover;
 }
 .c-accl-post-thumb__link--more{
     text-decoration: none;
@@ -806,3 +797,458 @@ tr.c-service-fees__row:nth-child(even) td{
 .c-label *{
     color: #fff !important;
 }
+
+.c-code--booking-widget{
+    width:1049px;
+    max-width: 100%;
+    margin-left:auto;
+    margin-right:auto;
+}
+.c-text--booking-widget{
+    padding: 12px 16px;
+    width:1049px;
+    max-width: 100%;
+    margin-left:auto;
+    margin-right:auto;
+}
+.main_color a{
+    color: #005db3;
+}
+a {
+    text-decoration: underline
+}
+.c-container--flex{
+    display:flex;
+}
+.u-flex-g--t{
+    gap: 6px
+}
+.u-flex-g--s{
+    gap: 12px
+}
+.slide-entry{
+    border-bottom: solid 1px;
+    padding-bottom: 24px
+}
+.c-btn--secondary {
+    color: #2c5c88;
+    border-color: #2c5c88;
+    text-align: center;
+    white-space: nowrap;
+    border: 1px solid;
+    border-radius: 1px;
+    padding: 9px;
+    cursor: pointer;
+    transition: background .3s ease-in-out;
+}
+
+.c-btn--primary {
+    color: white;
+    background: #2c5c88 ;
+    border-color: #2c5c88;
+    text-align: center;
+    white-space: nowrap;
+    border: 1px solid;
+    border-radius: 1px;
+    padding: 9px;
+    cursor: pointer;
+    transition: background .3s ease-in-out;
+}
+
+.slide-entry .entry-content-header{
+    background: transparent
+}
+.slide-entry .entry-footer{
+    display: none
+}
+#header.av_header_top{
+    padding:0
+}
+
+.c-container--contact-form form{
+    width: 800px;
+    margin: 0 auto !important;
+    max-width:100%
+
+}
+.u-ta-c{
+    text-align:center !important;
+}
+
+.u-mt-m {
+    margin-top: 24px;
+}
+
+.u-mt-l {
+    margin-top: 48px;
+}
+
+.modaal-container{
+
+    padding-right: 48px
+}
+
+.post-entry .entry-content-header{
+    background: transparent;
+}
+.post-entry .entry-footer{
+    background: transparent;
+}
+.main_menu .dropdown_ul_available .sub-menu{
+    height:auto;
+    overflow: visible;
+    overflow-y: visible
+}
+#top .title_container .container {
+    display: none;
+}
+.av-masonry-outerimage-container{
+    margin:12px
+}
+#menu-item-4815,
+#menu-item-5498,
+#menu-item-5501,
+#menu-item-5504{
+    /* 	display:none !important; */
+}
+
+#footer .container > *:first-child {
+    /*     display: none; */
+}
+
+/* Services update 2024 */
+.srv-button {
+    padding: 12px 24px;
+    background: #2c5c88;
+    color: white !important;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: all 200ms;
+    font-weight: 600;
+}
+
+.srv-button:hover {
+    filter: brightness(1.2);
+    text-decoration: none !important;
+}
+
+/* Table 2 */
+/* styles.css */
+
+.srv-table {
+    width: 100%;
+    max-width: 800px;
+    margin: 20px auto;
+    border-collapse: collapse;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.srv-table th,
+.srv-table td {
+    padding: 15px;
+    text-align: left;
+}
+
+.srv-table-header {
+    background-color: #2c5c88;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    font-size: 1.2em;
+}
+
+.srv-table-cell {
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+    color: #555;
+}
+
+.srv-table tr:hover .srv-table-cell {
+    background-color: #f1f1f1;
+}
+
+.srv-table tbody tr:nth-child(even) .srv-table-cell {
+    background-color: #f7f7f7;
+}
+
+.srv-table-cell p {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .srv-table,
+    .srv-table tr,
+    .srv-table th,
+    .srv-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .srv-table thead {
+        display: none;
+    }
+
+    .srv-table-cell {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .srv-table-cell:before {
+        content: attr(data-label);
+        font-weight: bold;
+        width: 50%;
+        text-align: left;
+        padding-right: 10px;
+    }
+
+    .srv-table-cell[data-label="Before Therapy"] {
+        background-color: #e0f7e7;
+    }
+
+    .srv-table-cell[data-label="After Therapy"] {
+        background-color: #e7f0fa;
+    }
+}
+.widget_nav_menu a{
+    font-size: 16px !important;
+}
+
+body#top #wrap_all .all_colors .widgettitle {
+    background: #2c5d88;
+    color: white !important;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 20px 20px;
+    margin: 0 0 20px 0;
+}
+.l-provision-documents__title{
+    background: #eee;
+    padding: 20px;
+    margin-bottom:40px;
+    color: #333 !important
+}
+.l-provision-documents{
+    border-bottom: solid ;
+    padding-bottom:40px;
+    margin-bottom: 40px
+}
+.resource__title{
+    margin-bottom: 20px;
+
+}
+.c-resource{
+    margin-bottom:40px;
+
+}
+.resource__document{
+    display: flex;
+    flex-wrap:wrap;
+    gap: 30px
+}
+.c-document{
+    background: #8cb3cb;
+    padding: 20px;
+    display: inline-block;
+    width: 40%;
+
+}
+.c-document__title{
+    margin-bottom: 20px;
+    color: #333 !important
+}
+.c-document__body{
+    margin-bottom: 10px
+}
+.c-document__body p{
+    color: white
+}
+.c-document__footer{
+    padding: 10px 0 ;
+    display: flex;
+    gap: 10px;
+
+}
+
+.c-document__footer a{
+    padding: 10px 10px;
+    background: #2c5d88;
+    color: white;
+    display: block
+}
+#nav_menu-4{
+    margin-top: 20px
+}
+
+
+/* Container styling */
+.c-contact-form__content {
+    max-width: 1000px;
+    margin: 2rem auto;
+    background: #f5f5f5; /* Flatter background */
+    padding: 30px;
+    border: 1px solid #ccc;
+    color: #222;
+}
+
+#TherapistDetailsForm .c-contact-form__content .c-contact-form__label-text{
+    font-size: 1.2rem;
+}
+
+#TherapistDetailsForm .c-contact-form__content input{
+    font-size: 1.1rem ;
+    padding: 1em;
+}
+#TherapistDetailsForm .c-contact-form__content textarea{
+    font-size: 1.1rem ;
+    padding: 1em;
+}
+    /* Label styling */
+.c-contact-form__label {
+    display: block;
+    margin-bottom: 1.5rem;
+}
+.c-contact-form__label-text {
+    display: block;
+    font-size: 1.1rem; /* Increased size */
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #111;
+}
+
+/* Small text within labels */
+small {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+/* Input fields styling */
+.c-contact-form__input-wrapper input[type="text"],
+.c-contact-form__input-wrapper input[type="number"],
+.c-contact-form__input-wrapper input[type="url"],
+.c-contact-form__input-wrapper textarea,
+.c-contact-form__input-wrapper select {
+    width: 100%;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #aaa;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+/* Textareas */
+.c-contact-form__input-wrapper textarea {
+    height: auto;
+}
+
+/* Availability checkboxes */
+.c-contact-form__wrapper {
+    margin-bottom: 20px;
+}
+.c-contact-form__input-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.c-contact-form__input-wrapper input[type="checkbox"] {
+    margin-right: 5px;
+}
+.c-contact-form__input-wrapper label {
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+}
+
+/* Force checkboxes to appear on a single row */
+.c-contact-form__input-wrapper--checkbox {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 15px;
+}
+
+/* Fieldset for service fees */
+.c-contact-form__fieldset--service-fees {
+    border: 1px solid #aaa;
+    padding: 15px 20px;
+    background: #eaeaea;
+    margin-bottom: 20px;
+}
+
+/* Headings */
+.c-contact-form__heading {
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #333;
+    padding-bottom: 5px;
+}
+.c-contact-form__heading--service {
+    font-size: 1.2rem;
+    margin: 10px 0;
+    font-weight: bold;
+}
+
+/* Service fee section: Single row layout */
+.c-contact-form__wrapper--service {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #ccc;
+}
+.c-contact-form__wrapper--service:last-child {
+    border-bottom: none;
+}
+
+/* Adjust service fee fields */
+.c-contact-form__wrapper--service h5 {
+    flex: 1;
+    min-width: 200px;
+    font-size: 1.1rem;
+}
+.c-contact-form__input-wrapper {
+   display: block;
+}
+.c-contact-form__input-wrapper input[type="number"],
+.c-contact-form__input-wrapper input[type="text"] {
+    width: 100%;
+}
+
+/* Submit button */
+.c-contact-form__input-wrapper--submit {
+    text-align: center;
+    margin-top: 20px;
+}
+.c-contact-form__input-wrapper--submit input{
+    display: block;
+    margin: 0 auto;
+    width: 300px;
+}
+
+input[type="submit"],
+button {
+    background: #222;
+    color: #fff;
+    border: none;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+input[type="submit"]:hover,
+button:hover {
+    background: #000;
+}
+
+.c-contact-form__input-wrapper input::placeholder,
+.c-contact-form__input-wrapper textarea::placeholder {
+    color: #ddd; /* Adjust to your preference */
+    font-style: italic;
+    opacity: 1; /* Ensures consistency across browsers */
+}
+
+

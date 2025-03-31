@@ -126,7 +126,7 @@
           {% set service_fees = post.meta('service_fees') %}
           {% set fees = service_fees | map(fee => fee.service_fee | default(0)) %}
           {% set sorted_fees = fees | sort %}
-          {% set lowest_fee = sorted_fees[0] %}
+          {% set lowest_fee = (sorted_fees[0] == 0) ? 'Fees not specified' : '£'~sorted_fees[0] %}
 
           {# Check if all fees are the same manually #}
           {% set all_same = true %}
@@ -142,7 +142,7 @@
             <p class="u-mt-0" > £{{ lowest_fee }}</p>
           {% else %}
             <h5 class="u-mt u-mb-t">Fees start from:</h5>
-            <p class="u-mt-0" >£{{ lowest_fee }}</p>
+            <p class="u-mt-0" >{{ lowest_fee }}</p>
           {% endif %}
         {% else %}
           <h5 class="u-mt u-mb-t">Fees:</h5>

@@ -14,7 +14,12 @@
           <p><?php the_field('short_description', $post->ID); ?></p>
         </div>
         <div class="c-document__footer">
-            <?php if (get_the_content()) : ?>
+
+            <?php
+
+            $post = get_post($post->ID);
+            $content = $post ? apply_filters('the_content', $post->post_content) : '';
+            if (trim(wp_strip_all_tags($content))) : ?>
               <a href="<?php echo get_permalink($post->ID) ?>">More info</a>
             <?php endif; ?>
             <?php if (get_field('document_link', $post->ID)) : ?>

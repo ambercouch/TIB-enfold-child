@@ -413,16 +413,58 @@ add_action( 'acf/include_fields', function() {
     }
 
     acf_add_local_field_group( array(
-        'key' => 'group_67bef4e307bcf',
+        'key' => 'group_therapist_details',
         'title' => 'Therapist Details',
         'fields' => array(
             array(
-                'key' => 'field_67bef4e31230a',
+                'key' => 'field_name',
+                'label' => 'Name',
+                'name' => 'name',
+                'aria-label' => '',
+                'type' => 'text',
+                'instructions' => 'Add the name of the Therapist or specialist. This will fall back to the title if left blank',
+                'required' => 0,
+                'conditional_logic' => 0,
+                'wrapper' => array(
+                    'width' => '',
+                    'class' => '',
+                    'id' => '',
+                ),
+                'default_value' => '',
+                'maxlength' => '',
+                'allow_in_bindings' => 0,
+                'placeholder' => '',
+                'prepend' => '',
+                'append' => '',
+            ),
+            array(
+                'key' => 'field_short_description',
+                'label' => 'Short description',
+                'name' => 'short_description',
+                'aria-label' => '',
+                'type' => 'textarea',
+                'instructions' => 'Add a short description to show in the list staff members',
+                'required' => 0,
+                'conditional_logic' => 0,
+                'wrapper' => array(
+                    'width' => '',
+                    'class' => '',
+                    'id' => '',
+                ),
+                'default_value' => '',
+                'maxlength' => 500,
+                'allow_in_bindings' => 0,
+                'rows' => 3,
+                'placeholder' => '',
+                'new_lines' => 'br',
+            ),
+            array(
+                'key' => 'field_years_experience',
                 'label' => 'Years Experiance',
                 'name' => 'years_experiance',
                 'aria-label' => '',
                 'type' => 'number',
-                'instructions' => 'Optionally add the years that this therapist has been practicing to help users make informed choises.',
+                'instructions' => 'Optionally add the years that this therapist has been practicing to help users make informed choices.',
                 'required' => 0,
                 'conditional_logic' => 0,
                 'wrapper' => array(
@@ -440,7 +482,7 @@ add_action( 'acf/include_fields', function() {
                 'append' => '',
             ),
             array(
-                'key' => 'field_67bef5511230b',
+                'key' => 'field_availability',
                 'label' => 'Availability',
                 'name' => 'availability',
                 'aria-label' => '',
@@ -460,7 +502,7 @@ add_action( 'acf/include_fields', function() {
                     'Thursdays' => 'Thursdays',
                     'Fridays' => 'Fridays',
                     'Saturdays' => 'Saturdays',
-                    'Sundarys' => 'Sundarys',
+                    'Sundarys' => 'Sundays',
                 ),
                 'default_value' => array(
                 ),
@@ -473,7 +515,7 @@ add_action( 'acf/include_fields', function() {
                 'custom_choice_button_text' => 'Add new choice',
             ),
             array(
-                'key' => 'field_67beff6b1230c',
+                'key' => 'field_service_fees',
                 'label' => 'Service Fees',
                 'name' => 'service_fees',
                 'aria-label' => '',
@@ -495,7 +537,7 @@ add_action( 'acf/include_fields', function() {
                 'rows_per_page' => 20,
                 'sub_fields' => array(
                     array(
-                        'key' => 'field_67beffc91230d',
+                        'key' => 'field_service_name',
                         'label' => 'Service Name',
                         'name' => 'service_name',
                         'aria-label' => '',
@@ -514,10 +556,10 @@ add_action( 'acf/include_fields', function() {
                         'placeholder' => '',
                         'prepend' => '',
                         'append' => '',
-                        'parent_repeater' => 'field_67beff6b1230c',
+                        'parent_repeater' => 'field_service_fees',
                     ),
                     array(
-                        'key' => 'field_67beffde1230e',
+                        'key' => 'field_service_fee',
                         'label' => 'Service Fee',
                         'name' => 'service_fee',
                         'aria-label' => '',
@@ -538,10 +580,10 @@ add_action( 'acf/include_fields', function() {
                         'step' => '',
                         'prepend' => '',
                         'append' => '',
-                        'parent_repeater' => 'field_67beff6b1230c',
+                        'parent_repeater' => 'field_service_fees',
                     ),
                     array(
-                        'key' => 'field_67bf0bcd5d184',
+                        'key' => 'field_service_note',
                         'label' => 'Service notes',
                         'name' => 'service_notes',
                         'aria-label' => '',
@@ -560,17 +602,17 @@ add_action( 'acf/include_fields', function() {
                         'placeholder' => '',
                         'prepend' => '',
                         'append' => '',
-                        'parent_repeater' => 'field_67beff6b1230c',
+                        'parent_repeater' => 'field_service_fees',
                     ),
                 ),
             ),
             array(
-                'key' => 'field_67c0170864143',
+                'key' => 'field_staff_link',
                 'label' => 'Staff Link',
                 'name' => 'staff_link',
                 'aria-label' => '',
                 'type' => 'url',
-                'instructions' => 'Add a direct link to them mebers booking calender provided by 10to8',
+                'instructions' => 'Add a direct link to them members booking calender provided by 10to8',
                 'required' => 0,
                 'conditional_logic' => 0,
                 'wrapper' => array(
@@ -582,6 +624,45 @@ add_action( 'acf/include_fields', function() {
                 'allow_in_bindings' => 0,
                 'placeholder' => 'https://app.10to8.com/book/xxxxxx/staff/xxxxxx/',
             ),
+            array(
+                'key' => 'field_staff_link_label',
+                'label' => 'Staff Link  Label',
+                'name' => 'staff_link_label',
+                'aria-label' => '',
+                'type' => 'text',
+                'instructions' => 'The button text for the staff link (defaults to Book a session with...)',
+                'required' => 0,
+                'conditional_logic' => 0,
+                'wrapper' => array(
+                    'width' => '',
+                    'class' => '',
+                    'id' => '',
+                ),
+                'default_value' => '',
+                'allow_in_bindings' => 0,
+                'placeholder' => 'Book Now',
+            ),
+            array(
+                'key' => 'field_currently_unavailable',
+                'label' => 'Currently Unavailable',
+                'name' => 'currently_unavailable',
+                'aria-label' => '',
+                'type' => 'true_false',
+                'instructions' => 'Select <b>Yes</b> if this Therapist is currently <b>not</b> able to take bookings eg Holiday, sabbatical etc',
+                'required' => 0,
+                'conditional_logic' => 0,
+                'wrapper' => array(
+                    'width' => '',
+                    'class' => '',
+                    'id' => '',
+                ),
+                'message' => 'Unavailable for bookings',
+                'default_value' => 0,
+                'allow_in_bindings' => 0,
+                'ui_on_text' => '',
+                'ui_off_text' => '',
+                'ui' => 1,
+            ),
         ),
         'location' => array(
             array(
@@ -589,6 +670,13 @@ add_action( 'acf/include_fields', function() {
                     'param' => 'post_type',
                     'operator' => '==',
                     'value' => 'therapist',
+                ),
+            ),
+            array(
+                array(
+                    'param' => 'post_type',
+                    'operator' => '==',
+                    'value' => 'additional_service',
                 ),
             ),
         ),
@@ -603,6 +691,8 @@ add_action( 'acf/include_fields', function() {
         'show_in_rest' => 0,
     ) );
 } );
+
+add_filter('wpcf7_autop_or_not', '__return_false');
 
 
 

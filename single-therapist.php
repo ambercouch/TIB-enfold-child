@@ -267,13 +267,15 @@ do_action('ava_after_main_title');
             $first_name = $words[0] ?? '';
 
             $staff_link = get_field('staff_link');
+            $staff_link_label = get_field('staff_link_label');
             $description = get_post_meta($post_id, 'description', true);
             $active_status = get_post_meta($post_id, 'active_post', true);
 
 // Display the values
             if (!empty($staff_link))
             {
-                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($staff_link) . '" target="_blank">Book a session with '.$first_name.'</a></p>';
+                $staff_link_label_output = ($staff_link_label == '' ) ? 'Book a session with '.$first_name : $staff_link_label;
+                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($staff_link) . '" >'.esc_html($staff_link_label_output).'</a></p>';
             }else{
                 $staff_link_output = '';
             }
@@ -304,15 +306,15 @@ do_action('ava_after_main_title');
 
                 $notes = []; // Collect all notes
 
-                foreach ($service_fees as $service) {
+                foreach ($service_fees as $i => $service) {
                     $has_note = !empty($service['service_notes']);
                     $service_fees_output .= '<tr class="c-service-fees__row">';
                     $service_fees_output .= '<td class="c-service-fees__cell c-service-fees__cell--title">'
                         . esc_html($service['service_name'])
                         . ($has_note ? ' *' : '') // Add asterisk if there's a note
                         . '</td>';
-                    $service_fees_output .= '<td class="c-service-fees__cell c-service-fees__cell--fee"><b>£'
-                        . esc_html($service['service_fee'])
+                    $service_fees_output .= '<td class="c-service-fees__cell c-service-fees__cell--fee"><b>'
+                        . ( !empty($service['service_fee']) ? '£' . esc_html($service['service_fee']) : 'TBC' )
                         . '</b></td>';
                     $service_fees_output .= '</tr>';
 
@@ -338,11 +340,6 @@ do_action('ava_after_main_title');
 
 
 // Echo the output if needed
-
-
-
-
-
 
 
             $content_output  = '<div class="entry-content" ' . avia_markup_helper(array('context' => 'entry_content', 'echo' => false)) . '>';
