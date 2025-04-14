@@ -1251,4 +1251,8 @@ button:hover {
     opacity: 1; /* Ensures consistency across browsers */
 }
 
+.c-contact-form__input-wrapper option{
+    padding: 6px 12px 8px;
+}
+
 
