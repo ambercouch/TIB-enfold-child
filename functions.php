@@ -695,4 +695,26 @@ add_action( 'acf/include_fields', function() {
 add_filter('wpcf7_autop_or_not', '__return_false');
 
 
+function enqueue_limit_primary_issues_script() {
+    // Only enqueue on pages where the form appears
+    wp_add_inline_script(
+        'contact-form-7', // Load after CF7 core script
+        <<<JS
+        document.addEventListener('DOMContentLoaded', function () {
+          const select = document.getElementById('primary_issues');
+          if (select && select.multiple) {
+            select.addEventListener('change', function () {
+              const selectedOptions = Array.from(this.selectedOptions);
+              if (selectedOptions.length > 5) {
+                selectedOptions[selectedOptions.length - 1].selected = false;
+                alert('Please select no more than 5 issues.');
+              }
+            });
+          }
+        });
+        JS
+    );
+}
+add_action('wp_enqueue_scripts', 'enqueue_limit_primary_issues_script');
+
 
