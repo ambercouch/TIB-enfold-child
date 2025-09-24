@@ -502,7 +502,37 @@ add_action( 'acf/include_fields', function() {
                     'Thursdays' => 'Thursdays',
                     'Fridays' => 'Fridays',
                     'Saturdays' => 'Saturdays',
-                    'Sundarys' => 'Sundays',
+                    'Sundays' => 'Sundays'
+                ),
+                'default_value' => array(
+                ),
+                'return_format' => 'array',
+                'allow_custom' => 0,
+                'allow_in_bindings' => 0,
+                'layout' => 'horizontal',
+                'toggle' => 0,
+                'save_custom' => 0,
+                'custom_choice_button_text' => 'Add new choice',
+            ),
+
+            array(
+                'key' => 'field_availability_time',
+                'label' => 'Availability time',
+                'name' => 'availability_time',
+                'aria-label' => '',
+                'type' => 'checkbox',
+                'instructions' => 'Check the time of days you are available',
+                'required' => 0,
+                'conditional_logic' => 0,
+                'wrapper' => array(
+                    'width' => '',
+                    'class' => '',
+                    'id' => '',
+                ),
+                'choices' => array(
+                    'Mornings' => 'Mornings',
+                    'Afternoons' => 'Afternoons',
+                    'Evenings' => 'Evenings'
                 ),
                 'default_value' => array(
                 ),
