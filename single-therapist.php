@@ -6,6 +6,19 @@ if (!defined('ABSPATH')) {
 global $avia_config;
 global $post;
 
+error_log('single-therapist');
+
+$raw_staff = get_field('staff_link', $post_id); // may be "251651" (new) or a URL (old)
+$staff_id  = tib_10to8_normalize_staff_id($raw_staff);
+
+// Full URIs (as shown by the API)
+$SERVICES_MULTI = tib_10to8_get_service_uris();
+
+if ($staff_id)
+{
+    $STAFF_URI = tib_10to8_staff_api_uri($staff_id);
+    $BOOKING_URL = tib_10to8_staff_booking_url($staff_id);
+}
 /*
 	 * get_header is a basic wordpress function, used to retrieve the header.php file in your theme directory.
 	 */
@@ -56,7 +69,6 @@ do_action('ava_after_main_title');
 			if (have_posts()) :
 
 				while (have_posts()) : the_post();
-
 
 					/*
      * get the current post id, the current post class and current post format
@@ -210,50 +222,17 @@ do_action('ava_after_main_title');
 						}
 					}
 
-					//      echo "<div class='blog-meta'>";
 
-					// $blog_meta_output = '';
-					// $icon = '<span class="iconfont" ' . av_icon_string( $post_format ) . '></span>';
 
-					// if( strpos( $blog_style, 'multi' ) !== false )
-					// {
-					// 	$gravatar = '';
-					// 	$pf_link = get_post_format_link( $post_format );
-
-					// 	if( $post_format == 'standard' )
-					// 	{
-					// 		$author_name = apply_filters( 'avf_author_name', get_the_author_meta( 'display_name', $post->post_author ), $post->post_author );
-					// 		$author_email = apply_filters( 'avf_author_email', get_the_author_meta('email', $post->post_author), $post->post_author );
-
-					// 		$gravatar_alt = esc_html( $author_name );
-					// 		$gravatar = get_avatar( $author_email, '81', 'blank', $gravatar_alt );
-					// 		$pf_link = get_author_posts_url( $post->post_author );
-					// 	}
-
-					// 	$blog_meta_output = "<a href='{$pf_link}' class='post-author-format-type'><span class='rounded-container'>" . $gravatar . $icon . '</span></a>';
-					// }
-					// else if( strpos( $blog_style, 'small' ) !== false )
-					// {
-					// 	$blog_meta_output = "<a href='{$link}' class='small-preview' {$featured_img_title} " . avia_markup_helper( array( 'context' => 'image', 'echo' => false ) ). ">" . $slider . $icon . '</a>';
-					// }
-
-					// echo apply_filters( 'avf_loop_index_blog_meta', $blog_meta_output );
-
-					//      echo '</div>';
-
-					echo "<div class='entry-content-wrapper clearfix {$post_format}-content'>";
+					echo "<div class='entry-content-wrapper clearfix {$post_format}-content c-single-therapist'>";
 					if ($link != '') {
 
 						echo '<div style="float:left; margin-right:20px;"><img src="' . $link . '" class="therapistmainimage"></div>';
 					}
 
-					echo '<header class="" style="background:#fff; display:inline-block; margin-bottom:20px;margin-top: 10px;">';
+					echo '<header class="entry-header c-single-therapist__header">';
 
-					//             if( $blog_style == 'bloglist-compact' )
-					// {
-					//                 $format = get_post_format();
-					//                 echo "<span class=' fallback-post-type-icon' " . av_icon_string($format) . '></span>';
-					//             }
+
 
 					$close_header 	= '</header>';
 
@@ -266,16 +245,21 @@ do_action('ava_after_main_title');
             $words = explode(' ', trim($full_title));
             $first_name = $words[0] ?? '';
 
-            $staff_link = get_field('staff_link');
+
+
+
+
             $staff_link_label = get_field('staff_link_label');
             $description = get_post_meta($post_id, 'description', true);
             $active_status = get_post_meta($post_id, 'active_post', true);
 
+
 // Display the values
-            if (!empty($staff_link))
+            if (!empty($BOOKING_URL))
             {
+
                 $staff_link_label_output = ($staff_link_label == '' ) ? 'Book a session with '.$first_name : $staff_link_label;
-                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($staff_link) . '" >'.esc_html($staff_link_label_output).'</a></p>';
+                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($BOOKING_URL) . '" >'.esc_html($staff_link_label_output).'</a></p>';
             }else{
                 $staff_link_output = '';
             }
@@ -337,14 +321,26 @@ do_action('ava_after_main_title');
                 }
             }
 
+            $content_next_appointment = '';
+
+            if ($staff_id) {
+
+              $content_next_appointment .= '<div class="c-next-appointment">';
+              $content_next_appointment .= '<div class="c-next-appointment__container">';
+              $content_next_appointment .=' <small>Next available appointment: </small> ' . tib_render_next_slot_multi($SERVICES_MULTI, $STAFF_URI, 60);
+              $content_next_appointment .= '</div>';
+              $content_next_appointment .= '</div>';
+
+
+                //echo $content_output;
+            }
 
 
 // Echo the output if needed
-
-
             $content_output  = '<div class="entry-content" ' . avia_markup_helper(array('context' => 'entry_content', 'echo' => false)) . '>';
-					$content_output .=		$content;
-            $content_output .= $staff_link_output;
+            $content_output .= $content_next_appointment;
+            $content_output .=		$content;
+          $content_output .= $staff_link_output;
 					$content_output .= '</div>';
 					$content_output .= '<div class="content-extras">';
 					$content_output .= '';
@@ -409,33 +405,7 @@ do_action('ava_after_main_title');
 						echo $close_header;
 						$close_header = '';
 
-						// if( ! in_array( $blog_style, array( 'bloglist-simple', 'bloglist-compact', 'bloglist-excerpt' ) ) )
-						// {
 
-						// 	echo '<span class="av-vertical-delimiter"></span>';
-
-						// 	//echo preview image
-						// 	if( strpos( $blog_style, 'big' ) !== false )
-						// 	{
-						// 		if( $slider )
-						// 		{
-						// 			$slider = '<a href="' . $link . '" ' . $featured_img_title . '>' . $slider . '</a>';
-						// 		}
-
-						// 		if( $slider )
-						// 		{
-						// 			echo '<div class="big-preview ' . $blog_style . '" ' . avia_markup_helper( array( 'context' => 'image', 'echo' => false ) ) . '>' . $slider . '</div>';
-						// 		}
-						// 	}
-
-
-						// 	if( ! empty( $before_content ) )
-						// 	{
-						// 		echo '<div class="big-preview ' . $blog_style . '">' . $before_content . '</div>';
-						// 	}
-
-						// 	echo $content_output;
-						// }
 
 						$cats = '';
 						$title = '';
@@ -444,6 +414,8 @@ do_action('ava_after_main_title');
 
 
 					echo $title;
+
+
 
 					if ($blog_style !== 'bloglist-compact') {
 						echo "<span class='post-meta-infos'>";
@@ -501,10 +473,8 @@ do_action('ava_after_main_title');
 
 
 
-					if (!in_array($blog_style, array('bloglist-simple', 'bloglist-compact', 'bloglist-excerpt'))) {
-						echo $content_output;
-					}
 
+            echo $content_output;
 
 
 

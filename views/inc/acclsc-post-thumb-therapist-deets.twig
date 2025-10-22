@@ -6,6 +6,26 @@
       <a href="{{ post.link }}" class="c-accl-post-thumb__feature-image-link" >
         <img src="{{ post.thumbnail.src }}" />
       </a>
+
+      <hr class="u-mt">
+
+      {# BEFORE the "Book a session" block #}
+      {% set raw_staff = post.meta('staff_link') %}
+      {% set staff_id  = fn('tib_10to8_normalize_staff_id', raw_staff) %}
+      {% set staff_uri = staff_id ? fn('tib_10to8_staff_api_uri', staff_id) : null %}
+
+      {% if staff_uri %}
+        {# Pull your global list of service URIs from functions.php #}
+        {% set services_multi = fn('tib_10to8_get_service_uris') %}
+
+        {# Get an HTML snippet like: "<span class='tib-slot ...'>Thu 2 Oct 2025 at 10:00</span>" #}
+        {% set next_html = fn('tib_render_next_slot_multi', services_multi, staff_uri, 60, 'No availability') %}
+
+        <p class="u-mt-0">
+          <strong>Next available:</strong>
+          {{- next_html|raw -}}
+        </p>
+      {% endif %}
       <hr class="u-mt">
       {% if post.meta('staff_link') %}
         <p class="u-mt-0" >Book a session with {{ post.title | split(' ') | first }}</p>

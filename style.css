@@ -1256,3 +1256,32 @@ button:hover {
 }
 
 
+.c-single-therapist header{
+    padding: 0;
+    margin: 0;
+}
+
+.c-single-therapist__header{
+    background: transparent !important;
+
+}
+
+.c-single-therapist .entry-title{
+    text-align: left !important;
+}
+.c-next-appointment{
+    display: flow-root;
+}
+.c-next-appointment__container{
+    background: #eee;
+    padding: 12px;
+    margin: 24px 0;
+    border: solid 1px #000;
+    border-color: #2c5b88 !important;
+    border-style: solid none;
+}
+.c-next-appointment__date-time{
+    font-weight: bold;
+    display: block;
+    color: #2c5b88;
+}
