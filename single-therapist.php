@@ -6,20 +6,20 @@ if (!defined('ABSPATH')) {
 global $avia_config;
 global $post;
 
-error_log('single-therapist');
 
-$raw_staff = get_field('staff_link', $post_id); // may be "251651" (new) or a URL (old)
-$staff_id  = tib_10to8_normalize_staff_id($raw_staff);
 
-// Full URIs (as shown by the API)
-$SERVICES_MULTI = tib_10to8_get_service_uris();
+$raw_staff = get_field('staff_link', get_the_ID());
 
-if ($staff_id)
-{
-    $STAFF_URI = tib_10to8_staff_api_uri($staff_id);
-    $BOOKING_URL = tib_10to8_staff_booking_url($staff_id);
-}
-/*
+// 2) Get your service list (array). You can keep hardcoded defaults or override via the filter later
+$services = tib_10to8_get_service_uris();
+
+// 3) Render the next appointment HTML (returns a string; never echoes)
+$next_html = tib_render_next_slot_multi_cached($services, $raw_staff, 28, 'Check availability');
+// 4) Build a booking link from the staff ID (works for both old URL or new ID)
+$staff_id = tib_10to8_extract_id($raw_staff);
+$booking_url = $staff_id ? tib_10to8_staff_booking_url($staff_id) : '';
+
+  /*
 	 * get_header is a basic wordpress function, used to retrieve the header.php file in your theme directory.
 	 */
 get_header();
@@ -259,7 +259,7 @@ do_action('ava_after_main_title');
             {
 
                 $staff_link_label_output = ($staff_link_label == '' ) ? 'Book a session with '.$first_name : $staff_link_label;
-                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($BOOKING_URL) . '" >'.esc_html($staff_link_label_output).'</a></p>';
+                $staff_link_output = '<p class="u-ta-c"><a class="btn c-btn c-btn--staff-link" href="' . esc_url($booking_url ?: $raw_staff) . '" >'.esc_html($staff_link_label_output).'</a></p>';
             }else{
                 $staff_link_output = '';
             }
@@ -327,7 +327,7 @@ do_action('ava_after_main_title');
 
               $content_next_appointment .= '<div class="c-next-appointment">';
               $content_next_appointment .= '<div class="c-next-appointment__container">';
-              $content_next_appointment .=' <small>Next available appointment: </small> ' . tib_render_next_slot_multi($SERVICES_MULTI, $STAFF_URI, 60);
+              $content_next_appointment .=' <small>Next available appointment: </small> ' . $next_html;
               $content_next_appointment .= '</div>';
               $content_next_appointment .= '</div>';
 
