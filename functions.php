@@ -1025,8 +1025,9 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
         if (empty($all_slots)) {
             // Only cache "no availability" if we actually queried the API
-            if (!$disable_cache && $made_api_calls > 0) {
+            if ($made_api_calls > 0) {
                 set_transient($cache_key, null, 10 * MINUTE_IN_SECONDS);
+                if ($debug) echo "\n<!-- 10to8[MULTI] wrote NULL to cache key=$cache_key (ttl 10m) -->\n";
             }
             return null;
         }
@@ -1077,13 +1078,15 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
             'raw'         => $next,
         ];
 
+
+
         if ($debug) {
             $chosen_svc = $next['_tib_service']  ?? 'unknown-service';
             $chosen_loc = $next['_tib_location'] ?? 'unknown-location';
             echo "\n<!-- 10to8[MULTI] chosen: service=$chosen_svc | location=$chosen_loc | start_iso={$out['start_iso']} | local={$out['date']} {$out['time']} -->\n";
         }
 
-        if (!$disable_cache) set_transient($cache_key, $out, 10 * MINUTE_IN_SECONDS);
+        set_transient($cache_key, $out, 10 * MINUTE_IN_SECONDS);
         return $out;
     }
 }
@@ -1150,4 +1153,37 @@ function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead 
         esc_html($slot['date']),
         esc_html($slot['time'])
     );
+}
+
+/**
+ * ONLINE renderer (hits API via tib_get_next_10to8_slot_multi, then caches).
+ * Returns an HTML string (safe to echo or assign).
+ */
+if (!function_exists('tib_render_next_slot_multi')) {
+    function tib_render_next_slot_multi($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
+        $slot = tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
+
+        // Optional lightweight debug (you'll see API debug from the getter if TIB_10TO8_DEBUG is true)
+        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG && is_wp_error($slot)) {
+            echo "\n<!-- tib_render_next_slot_multi error: " . esc_html($slot->get_error_message()) . " -->\n";
+        }
+
+        if (is_wp_error($slot) || !$slot) {
+            return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+        }
+
+        return sprintf(
+            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+            esc_attr($slot['start_iso']),
+            esc_html($slot['date']),
+            esc_html($slot['time'])
+        );
+    }
+}
+
+/** Convenience echo wrapper (optional). */
+if (!function_exists('tib_echo_next_slot_multi')) {
+    function tib_echo_next_slot_multi($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
+        echo tib_render_next_slot_multi($service_ids, $staff_id, $days_ahead, $empty_text);
+    }
 }

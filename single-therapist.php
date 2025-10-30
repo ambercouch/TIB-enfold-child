@@ -8,17 +8,26 @@ global $post;
 
 
 
+// 1) ACF value can be an old URL or a numeric ID
 $raw_staff = get_field('staff_link', get_the_ID());
 
-// 2) Get your service list (array). You can keep hardcoded defaults or override via the filter later
+// 2) Your service list (URIs)
 $services = tib_10to8_get_service_uris();
 
-// 3) Render the next appointment HTML (returns a string; never echoes)
-$next_html = tib_render_next_slot_multi_cached($services, $raw_staff, 28, 'Check availability');
-// 4) Build a booking link from the staff ID (works for both old URL or new ID)
-$staff_id = tib_10to8_extract_id($raw_staff);
-$booking_url = $staff_id ? tib_10to8_staff_booking_url($staff_id) : '';
+// 3) Force a live fetch on singles so the transient gets set
+//    Use 28–60 days as you prefer. While testing, add ?tib10to8_flush=1 to the URL.
+$next_html = tib_render_next_slot_multi($services, $raw_staff, 28, 'No availability');
 
+// OPTIONAL: quick inline debug to confirm what we’re passing
+if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
+    echo "\n<!-- single-therapist: staff_raw=" . esc_html(var_export($raw_staff, true)) .
+        " | services=" . count((array)$services) .
+        " | days=28 -->\n";
+}
+
+// 4) Booking URL
+$staff_id    = tib_10to8_extract_id($raw_staff);
+$booking_url = $staff_id ? tib_10to8_staff_booking_url($staff_id) : '';
   /*
 	 * get_header is a basic wordpress function, used to retrieve the header.php file in your theme directory.
 	 */
@@ -255,7 +264,7 @@ do_action('ava_after_main_title');
 
 
 // Display the values
-            if (!empty($BOOKING_URL))
+            if (!empty($booking_url))
             {
 
                 $staff_link_label_output = ($staff_link_label == '' ) ? 'Book a session with '.$first_name : $staff_link_label;
