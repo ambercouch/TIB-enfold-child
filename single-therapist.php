@@ -16,7 +16,7 @@ $services = tib_10to8_get_service_uris();
 
 // 3) Force a live fetch on singles so the transient gets set
 //    Use 28–60 days as you prefer. While testing, add ?tib10to8_flush=1 to the URL.
-$next_html = tib_render_next_slot_multi($services, $raw_staff, 28, 'No availability');
+$next_html = tib_render_next_slot_multi($services, $raw_staff, 28, 'No current availability');
 
 // OPTIONAL: quick inline debug to confirm what we’re passing
 if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {

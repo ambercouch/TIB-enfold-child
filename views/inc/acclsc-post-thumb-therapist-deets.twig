@@ -1,3 +1,5 @@
+{% set raw_staff   = post.meta('staff_link') %}                 {# ID or old URL #}
+
 <article id="post-{{ post.id }}" {{ fn('post_class', 'c-accl-post-list__post-thumb--therapist-deets') }}>
   <div class="c-accl-post-thumb--therapist-deets ">
     <div class="c-accl-post-thumb--therapist-deets c-flex-container">
@@ -9,20 +11,18 @@
 
       <hr class="u-mt">
 
-      {# BEFORE the "Book a session" block #}
-      {% set raw_staff = post.meta('staff_link') %}
-      {% set staff_id  = fn('tib_10to8_normalize_staff_id', raw_staff) %}
-      {% set staff_uri = staff_id ? fn('tib_10to8_staff_api_uri', staff_id) : null %}
 
-      {% if staff_uri %}
-        {# Pull your global list of service URIs from functions.php #}
-        {% set services_multi = fn('tib_10to8_get_service_uris') %}
+
+      {% if raw_staff %}
+        {# Pull your global list of settrvice URIs from functions.php #}
+        {% set services = fn('tib_10to8_get_service_uris') %}
+        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', true, 8)|raw %}
+
 
         {# Get an HTML snippet like: "<span class='tib-slot ...'>Thu 2 Oct 2025 at 10:00</span>" #}
-        {% set next_html = fn('tib_render_next_slot_multi', services_multi, staff_uri, 60, 'No availability') %}
 
         <p class="u-mt-0">
-          <strong>Next available:</strong>
+          <strong>Next available: </strong>
           {{- next_html|raw -}}
         </p>
       {% endif %}
