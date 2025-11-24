@@ -18,6 +18,8 @@
  *   define('TIB_10TO8_DEBUG', true); // emit HTML comments in page source while testing
  */
 
+
+
 function tib_10to8_dbg(string $msg): void {
     if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
         error_log('[tib-10to8] ' . $msg);
@@ -125,10 +127,20 @@ function tib_10to8_services_offered_by_staff(string $staff_uri, array $service_u
     $out = [];
     foreach ($service_uris as $svc) {
         if (!isset($meta[$svc])) continue;
-        $staff_list = $meta[$svc]['staff'] ?? [];
-        // fast membership check
-        if ($staff_list && in_array($staff_uri, $staff_list, true)) {
-            $out[$svc] = ['locations' => ($meta[$svc]['locations'] ?? [])];
+
+        $staff_list = $meta[$svc]['staff'] ?? null;  // may be null/[]
+        $locs = $meta[$svc]['locations'] ?? [];
+
+        // If staff list is UNKNOWN or EMPTY → include service (let /slot/ decide).
+        if (!is_array($staff_list) || count($staff_list) === 0) {
+            tib_10to8_dbg("svc prefilter: unknown staff list, keeping $svc");
+            $out[$svc] = ['locations' => $locs];
+            continue;
+        }
+
+        // If present → require membership
+        if (in_array($staff_uri, $staff_list, true)) {
+            $out[$svc] = ['locations' => $locs];
         }
     }
     return $out;
@@ -302,14 +314,24 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
 
         // NEW: prefilter services to those the staff can actually deliver (removes 400s and excess calls)
-        $svc_map = tib_10to8_services_offered_by_staff($staff_uri, $service_uris); // [ service_uri => ['locations' => [...]] ]
+        $svc_map = tib_10to8_services_offered_by_staff($staff_uri, $service_uris);
+
         if (empty($svc_map)) {
-            if ($debug) echo "\n<!-- 10to8[MULTI] no staff-offered services for $staff_uri -->\n";
-            tib_10to8_dbg("NO STAFF-SERVICE MATCH for $staff_uri (key=$cache_key)");
-            // short negative cache to avoid sticky 'no availability'
-            tib_10to8_set_transient($cache_key, null, 3 * MINUTE_IN_SECONDS);
-            return null;
+            tib_10to8_dbg("prefilter empty; falling back to all services");
+            // Build a minimal map from meta (to get locations) without staff filtering.
+            $meta_all = tib_10to8_fetch_service_meta($service_uris);
+            foreach ($service_uris as $svc_uri) {
+                $locs = $meta_all[$svc_uri]['locations'] ?? [];
+                $svc_map[$svc_uri] = ['locations' => $locs];
+            }
+            // If still empty, give up early (rare).
+            if (empty($svc_map)) {
+                tib_10to8_dbg("fallback also empty for key=$cache_key");
+                tib_10to8_set_transient($cache_key, null, 3 * MINUTE_IN_SECONDS);
+                return null;
+            }
         }
+
 
         // Request bits
         $headers = [
