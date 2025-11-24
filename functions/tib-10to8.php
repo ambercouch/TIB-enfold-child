@@ -23,28 +23,40 @@
  * --------------------------- */
 
 /**
- * Global cache toggle for 10to8 integration.
- * Disable via:
- *   - URL param: ?tib10to8_flush=1
- *   - Constant:  define('TIB_10TO8_DISABLE_CACHE', true); in wp-config.php
+ * Global cache switch (config only).
+ * When true: bypass BOTH reads and writes.
  */
 function tib_10to8_cache_disabled(): bool {
-    return (defined('TIB_10TO8_DISABLE_CACHE') && TIB_10TO8_DISABLE_CACHE) || isset($_GET['tib10to8_flush']);
+    return (defined('TIB_10TO8_DISABLE_CACHE') && TIB_10TO8_DISABLE_CACHE);
 }
 
-/** Safe cache read (no-op when disabled) */
+/**
+ * Request-level flush (URL flag only).
+ * When present: bypass READS for this request, but still allow WRITES.
+ */
+function tib_10to8_request_flush(): bool {
+    return isset($_GET['tib10to8_flush']);
+}
+
+/** Safe cache read.
+ * - Off globally => bypass
+ * - Flush param  => bypass (read-through)
+ */
 function tib_10to8_get_transient(string $key) {
-    if (tib_10to8_cache_disabled()) return false;
+    if (tib_10to8_cache_disabled() || tib_10to8_request_flush()) return false;
     return get_transient($key);
 }
 
-/** Safe cache write (no-op when disabled) */
+/** Safe cache write.
+ * - Off globally => no-op
+ * - Flush param  => ALLOW (so a flush repopulates the cache)
+ */
 function tib_10to8_set_transient(string $key, $value, int $ttl): bool {
     if (tib_10to8_cache_disabled()) return false;
     return set_transient($key, $value, $ttl);
 }
 
-/** Safe cache delete (still allowed even when disabled) */
+/** Safe cache delete (always allowed). */
 function tib_10to8_delete_transient(string $key): bool {
     return delete_transient($key);
 }
@@ -62,7 +74,7 @@ function tib_10to8_fetch_service_meta(array $service_uris): array {
     $out = [];
     foreach ($service_uris as $svc) {
         $ckey = 'tib_10to8_service_meta_' . md5($svc);
-        $cached = get_transient($ckey);
+        $cached = tib_10to8_get_transient($ckey);
         if ($cached !== false) { $out[$svc] = $cached; continue; }
 
         $resp = wp_remote_get($svc, ['headers' => $headers, 'timeout' => 10]);
@@ -77,7 +89,7 @@ function tib_10to8_fetch_service_meta(array $service_uris): array {
         $staff     = isset($body['staff'])     && is_array($body['staff'])     ? array_values(array_filter($body['staff']))     : [];
 
         $val = ['locations' => $locations, 'staff' => $staff];
-        set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS);
+        tib_10to8_set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS);
         $out[$svc] = $val;
     }
     return $out;
@@ -230,6 +242,8 @@ function tib_10to8_get_service_uris(): array
  */
 if (!function_exists('tib_get_next_10to8_slot_multi')) {
     function tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead = 60) {
+        echo "\n<!-- 10to8 tib_get_next_10to8_slot_multi -->\n";
+
         $api_key = defined('TIB_10TO8_API_KEY') ? TIB_10TO8_API_KEY : '';
         if (!$api_key) return new WP_Error('tib_10to8_config', 'Missing API key');
 
@@ -244,26 +258,38 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
             return new WP_Error('tib_10to8_config', 'Bad staff or service list');
         }
 
-        // Cache read (with optional bypass)
-        $disable_cache = isset($_GET['tib10to8_flush']);
-        if (!$disable_cache) {
-            $cached = get_transient($cache_key);
+        // Cache read logic
+        $cache_off = tib_10to8_cache_disabled();
+        $flush     = tib_10to8_request_flush();
+
+        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
+            echo "\n<!-- 10to8[GET] key=$cache_key | cache_off=".(tib_10to8_cache_disabled()?'1':'0')." | flush=".(tib_10to8_request_flush()?'1':'0')." -->\n";
+        }
+
+        if ($cache_off) {
+            if ($debug) echo "\n<!-- 10to8[MULTI] cache: OFF (global) -->\n";
+        } else {
+            // With cache ON, a flush bypasses reads but we will still write later
+            $cached = tib_10to8_get_transient($cache_key);
             if ($cached !== false) {
                 if ($debug) echo "\n<!-- 10to8[MULTI] cache HIT key=$cache_key -->\n";
                 return $cached;
-            } elseif ($debug) {
-                echo "\n<!-- 10to8[MULTI] cache MISS key=$cache_key -->\n";
+            } else {
+                if ($debug) {
+                    echo $flush
+                        ? "\n<!-- 10to8[MULTI] cache FLUSH (bypass read) -->\n"
+                        : "\n<!-- 10to8[MULTI] cache MISS key=$cache_key -->\n";
+                }
             }
-        } elseif ($debug) {
-            echo "\n<!-- 10to8[MULTI] cache BYPASSED -->\n";
         }
+
 
         // NEW: prefilter services to those the staff can actually deliver (removes 400s and excess calls)
         $svc_map = tib_10to8_services_offered_by_staff($staff_uri, $service_uris); // [ service_uri => ['locations' => [...]] ]
         if (empty($svc_map)) {
             if ($debug) echo "\n<!-- 10to8[MULTI] no staff-offered services for $staff_uri -->\n";
             // short negative cache to avoid sticky 'no availability'
-            set_transient($cache_key, null, 3 * MINUTE_IN_SECONDS);
+            tib_10to8_set_transient($cache_key, null, 3 * MINUTE_IN_SECONDS);
             return null;
         }
 
@@ -353,7 +379,7 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
         // Nothing found
         if (empty($all_slots)) {
             if ($made_api_calls > 0) {
-                set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS); // short negative cache
+                tib_10to8_set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS); // short negative cache
                 if ($debug) echo "\n<!-- 10to8[MULTI] wrote NULL to cache key=$cache_key (ttl 5m) -->\n";
             }
             return null;
@@ -376,7 +402,7 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
         if (!$start_key) {
             if ($debug) echo "\n<!-- 10to8[MULTI] could not detect start key; sample: " . esc_html(substr(json_encode($first), 0, 400)) . " -->\n";
-            if ($made_api_calls > 0) set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS);
+            if ($made_api_calls > 0) tib_10to8_set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS);
             return null;
         }
 
@@ -412,7 +438,7 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
         }
 
         // Positive result TTL: a bit longer
-        set_transient($cache_key, $out, 10 * MINUTE_IN_SECONDS);
+        tib_10to8_set_transient($cache_key, $out, 10 * MINUTE_IN_SECONDS);
         if ($debug) echo "\n<!-- 10to8[MULTI] wrote cache key=$cache_key (ttl 10m) -->\n";
         return $out;
     }
@@ -453,21 +479,44 @@ function tib_get_next_10to8_slot_multi_cached($service_ids, $staff_id, $days_ahe
     sort($service_uris, SORT_STRING);
 
     $cache_key = 'tib_10to8_nextslot_multi_' . md5(implode('|', $service_uris) . '|' . $staff_uri . '|' . (int)$days_ahead);
-    $cached = get_transient($cache_key);
+    $cached = tib_10to8_get_transient($cache_key);
     return ($cached !== false) ? $cached : null;
 }
 
 /**
  * Render cached; if missing, optionally do a tiny online fetch to fill it.
  */
-function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability', $soft_fetch = false, $soft_cap = 16) {
-    [$cache_key, $service_uris, $staff_uri, $days_ahead] = tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
+function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability', $soft_fetch = false, $soft_cap   = 16
+) {
+    $cache_off = tib_10to8_cache_disabled();
+    $flush     = tib_10to8_request_flush();
+
+    // When global cache is OFF: always go live, no transients used.
+    if ($cache_off) {
+        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
+            echo "\n<!-- 10to8[RENDER] cache OFF → live fetch -->\n";
+        }
+        $slot = tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
+        if (is_wp_error($slot) || !$slot) {
+            return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+        }
+        return sprintf(
+            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+            esc_attr($slot['start_iso']),
+            esc_html($slot['date']),
+            esc_html($slot['time'])
+        );
+    }
+
+    // Cache ON path (flush only bypasses reads)
+    [$cache_key, $service_uris, $staff_uri, $days_ahead] =
+        tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
+
     if (!$staff_uri || empty($service_uris)) {
         return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
     }
 
-    // Read cache
-    $cached = tib_10to8_get_transient($cache_key);
+    $cached = tib_10to8_get_transient($cache_key); // respects flush (bypass read)
     if ($cached !== false) {
         if (is_array($cached)) {
             return sprintf(
@@ -477,20 +526,18 @@ function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead 
                 esc_html($cached['time'])
             );
         }
-        // cached null → show empty state
+        // cached null → explicitly "no availability"
         return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
     }
 
-    // Optional soft fetch (one quick online attempt that WRITES the cache immediately)
+    // If we get here we either had a miss or a flush (read bypass).
     if ($soft_fetch && defined('TIB_10TO8_API_KEY') && TIB_10TO8_API_KEY) {
-        // Temporarily increase the per-request cap for this one attempt (use a global, not a constant)
         $GLOBALS['tib10to8_soft_cap'] = max(8, (int)$soft_cap);
+        // Do a live call; with cache ON it will write; with flush it will still write.
+        tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
 
-        // Call the online getter – it uses the same key and always writes the transient now
-        tib_get_next_10to8_slot_multi($service_uris, $staff_uri, $days_ahead);
-
-        // Re-read whatever got written
-        $cached = tib_10to8_get_transient($cache_key);
+        // Try to read what was just written
+        $cached = get_transient($cache_key); // read raw; we want the fresh write
         if (is_array($cached)) {
             return sprintf(
                 '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
@@ -519,6 +566,10 @@ if (!function_exists('tib_render_next_slot_multi')) {
 
         if (is_wp_error($slot) || !$slot) {
             return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+        }
+
+        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
+            echo "\n<!-- 10to8[GET] key=$cache_key | cache_off=".(tib_10to8_cache_disabled()?'1':'0')." | flush=".(tib_10to8_request_flush()?'1':'0')." -->\n";
         }
 
         return sprintf(
