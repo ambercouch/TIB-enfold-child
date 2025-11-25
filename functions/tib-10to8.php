@@ -12,6 +12,12 @@
 
 /* ========== tiny utils ========== */
 
+
+function tib_10to8_set_call_cap(int $cap): void {
+    $GLOBALS['tib10to8_call_cap_override'] = max(1, $cap);
+}
+
+
 function tib_10to8_dbg(string $msg): void {
     if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) error_log('[tib-10to8] '.$msg);
 }
@@ -265,6 +271,7 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
         };
 
         $all_slots = [];
+        $saw_200   = false;
         $made_calls = 0;
         $last_code = null;
         $last_count = null;
@@ -300,13 +307,15 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
                     $sec = tib_10to8_parse_retry_seconds($raw);
                     tib_10to8_dbg('SLOT 429 — backoff '.$sec.'s');
                     tib_10to8_throttle_mark($sec);
-                    return null; // do NOT write null
+                    return null; // no cache write on throttle
                 }
+
                 if ($code !== 200) {
                     tib_10to8_dbg('SLOT GET NON200 code='.$code.' peek='.substr(trim((string)$raw), 0, 160));
-                    $last_code = $code; $last_count = null;
                     continue;
                 }
+
+                $saw_200 = true; // <-- mark
 
                 $rows = $parse_rows($raw);
                 $cnt  = is_array($rows) ? count($rows) : 0;
@@ -326,12 +335,10 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
         // No slots found
         if (empty($all_slots)) {
-            $clean_zero = ($made_calls > 0 && $last_code === 200 && ((int)$last_count) === 0);
-            if ($clean_zero) {
+            // Only negative-cache when we truly observed 200 OK responses with zero results.
+            if ($saw_200) {
                 tib_10to8_set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS);
-                tib_10to8_dbg('WRITE null -> '.$cache_key.' (ttl 5m) [clean-200-zero]');
-            } else {
-                tib_10to8_dbg('NO WRITE (preserve cache) last_code='.var_export($last_code, true));
+                tib_10to8_dbg('WRITE null -> '.$cache_key.' (ttl 5m)');
             }
             return null;
         }
@@ -393,16 +400,83 @@ function tib_get_next_10to8_slot_multi_cached($service_ids, $staff_id, $days_ahe
 /**
  * LISTS: read cache only (safe under rate limits).
  */
-function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability') {
-    $slot = tib_get_next_10to8_slot_multi_cached($service_ids, $staff_id, $days_ahead);
-    if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) echo "\n<!-- 10to8[RENDER] cached-only ".($slot ? 'HIT' : 'MISS')." -->\n";
-    if (!$slot) return '<span class="tib-slot tib-slot--none">'.esc_html($empty_text).'</span>';
-    return sprintf(
-        '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
-        esc_attr($slot['start_iso']),
-        esc_html($slot['date']),
-        esc_html($slot['time'])
-    );
+function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability', $soft_fetch = false, $soft_cap = 16)
+          {
+          $cache_off = tib_10to8_cache_disabled();
+
+    if ($cache_off) {
+        // Live path when cache is disabled
+        $slot = tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
+        if (is_array($slot)) {
+            return sprintf(
+                '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+                esc_attr($slot['start_iso']),
+                esc_html($slot['date']),
+                esc_html($slot['time'])
+            );
+        }
+        return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+    }
+
+    // Cache ON: build key exactly like the online getter
+    [$cache_key, $service_uris, $staff_uri, $days_ahead] =
+        tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
+
+    if (!$staff_uri || empty($service_uris)) {
+        return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+    }
+
+    // Read via helper (respects ?tib10to8_flush)
+    $cached = tib_10to8_get_transient($cache_key);
+
+    // 1) Cache HIT with a real slot
+    if (is_array($cached)) {
+        return sprintf(
+            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+            esc_attr($cached['start_iso']),
+            esc_html($cached['date']),
+            esc_html($cached['time'])
+        );
+    }
+
+    // 2) Cache HIT with explicit NULL (negative cache)
+    //    Previously we returned immediately (no soft fetch) – that's the bug.
+    if ($cached === null && $soft_fetch) {
+        if (!empty($soft_cap)) tib_10to8_set_call_cap((int)$soft_cap);
+        // Try a live fill (honours global throttle/budget)
+        tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
+
+        // Re-read the raw transient (don’t use the helper to avoid read-bypass)
+        $fresh = get_transient($cache_key);
+        if (is_array($fresh)) {
+            return sprintf(
+                '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+                esc_attr($fresh['start_iso']),
+                esc_html($fresh['date']),
+                esc_html($fresh['time'])
+            );
+        }
+        // Still null or miss → show empty text
+        return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+    }
+
+    // 3) Cache MISS (false): do an optional soft fetch, then read once
+    if ($cached === false && $soft_fetch) {
+        if (!empty($soft_cap)) tib_10to8_set_call_cap((int)$soft_cap);
+        tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
+        $fresh = get_transient($cache_key);
+        if (is_array($fresh)) {
+            return sprintf(
+                '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+                esc_attr($fresh['start_iso']),
+                esc_html($fresh['date']),
+                esc_html($fresh['time'])
+            );
+        }
+    }
+
+    // Fallback
+    return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
 }
 
 /**
