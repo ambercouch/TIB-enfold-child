@@ -11,19 +11,13 @@
 
       <hr class="u-mt">
 
-
-
+      {% set raw_staff = post.meta('staff_link') %}
       {% if raw_staff %}
-        {# Pull your global list of settrvice URIs from functions.php #}
         {% set services = fn('tib_10to8_get_service_uris') %}
-        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', true, 8)|raw %}
-
-
-        {# Get an HTML snippet like: "<span class='tib-slot ...'>Thu 2 Oct 2025 at 10:00</span>" #}
+        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', true, 8) %}
 
         <p class="u-mt-0">
-          <strong>Next available: </strong>
-          {{- next_html|raw -}}
+          <strong>Next available: </strong>{{ next_html|raw }}
         </p>
       {% endif %}
       <hr class="u-mt">

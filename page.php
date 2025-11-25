@@ -4,22 +4,6 @@
 
 	global $avia_config, $wp_query;
 
-$services = tib_10to8_get_service_uris();
-
-// Prime meta once to avoid 429s later in the render
-tib_10to8_prime_service_meta($services);
-
-// Collect staff for the posts on this page
-$staffs = [];
-foreach ($wp_query->posts as $p) {
-    $s = get_field('staff_link', $p->ID);
-    if ($s) $staffs[] = $s;
-}
-$staffs = array_values(array_unique($staffs));
-
-// With cache ON, do a quick pre-warm (bigger per-page cap than the default)
-tib_10to8_prime_next_slots($staffs, $services, 28, 160);
-
 	/*
 	 * get_header is a basic wordpress function, used to retrieve the header.php file in your theme directory.
 	 */

@@ -1,54 +1,197 @@
 <?php
-
 /**
- * Talk in the Bay — 10to8 (Sign In Scheduling) helpers
- * - Normalises IDs/URLs for staff & services
- * - Finds the earliest slot across many services & all their locations
- * - ACF select for staff (stores numeric staff ID)
- * - Simple render/echo helpers for templates
+ * Talk in the Bay — 10to8 helpers (simplified, robust)
  *
- * Assumptions:
- * - Auth uses "Token <API_KEY>" (swap to Bearer if your tenant requires)
- * - Slot endpoint accepts start_date / end_date
- * - Responses may be an array or {results:[...]}
- *
- * Optional constants (set in wp-config.php):
- *   define('TIB_10TO8_API_KEY', 'xxx');
- *   define('TIB_10TO8_BOOK_SLUG', 'kyvakywdvslaodmqbc'); // your org slug
- *   define('TIB_10TO8_DEBUG', true); // emit HTML comments in page source while testing
+ * Optional constants (wp-config.php):
+ *   define('TIB_10TO8_API_KEY', 'xxx');              // required for live calls
+ *   define('TIB_10TO8_BOOK_SLUG', 'your-book-slug'); // optional, for public booking URLs
+ *   define('TIB_10TO8_DEBUG', true);                 // log debug + emit small HTML comments
+ *   define('TIB_10TO8_DISABLE_CACHE', false);        // force live (not recommended for lists)
+ *   define('TIB_10TO8_SLOT_RATE_PER_MIN', 45);       // global budget per minute for slot calls
  */
 
-// --- Per-request call budget + memo ---
+/* ========== tiny utils ========== */
 
-function tib_10to8_call_count(): int {
-    if (!isset($GLOBALS['tib10to8_call_count'])) $GLOBALS['tib10to8_call_count'] = 0;
-    return (int)$GLOBALS['tib10to8_call_count'];
+function tib_10to8_dbg(string $msg): void {
+    if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) error_log('[tib-10to8] '.$msg);
+}
+function tib_10to8_now(): int { return time(); }
+
+function tib_10to8_cache_disabled(): bool {
+    return (defined('TIB_10TO8_DISABLE_CACHE') && TIB_10TO8_DISABLE_CACHE);
+}
+function tib_10to8_request_flush(): bool {
+    return isset($_GET['tib10to8_flush']);
+}
+function tib_10to8_get_transient(string $key) {
+    if (tib_10to8_cache_disabled() || tib_10to8_request_flush()) return false;
+    return get_transient($key);
+}
+function tib_10to8_set_transient(string $key, $value, int $ttl): bool {
+    if (tib_10to8_cache_disabled()) return false;
+    return set_transient($key, $value, $ttl);
 }
 
-function tib_10to8_inc_call_count(int $n = 1): void {
-    if (!isset($GLOBALS['tib10to8_call_count'])) $GLOBALS['tib10to8_call_count'] = 0;
-    $GLOBALS['tib10to8_call_count'] += $n;
+/* ========== global throttle (from 429s) ========== */
+
+function tib_10to8_throttle_key(): string { return 'tib_10to8_throttle_until'; }
+function tib_10to8_throttle_active(): bool {
+    $until = (int) get_transient(tib_10to8_throttle_key());
+    return $until > tib_10to8_now();
+}
+function tib_10to8_throttle_mark(int $seconds): void {
+    $seconds = max(10, min(300, $seconds ?: 60));
+    set_transient(tib_10to8_throttle_key(), tib_10to8_now() + $seconds, $seconds);
+    tib_10to8_dbg('THROTTLE set for '.$seconds.'s');
+}
+function tib_10to8_parse_retry_seconds(?string $raw): int {
+    if (!$raw) return 60;
+    return (preg_match('~(\d+)\s*seconds?~i', $raw, $m)) ? (int)$m[1] : 60;
 }
 
-function tib_10to8_call_cap(): int {
-    // Global cap from wp-config, default 64
-    $cap = defined('TIB_10TO8_CALL_CAP') ? (int)TIB_10TO8_CALL_CAP : 64;
-    // Optional request-time override
-    if (isset($GLOBALS['tib10to8_call_cap_override'])) {
-        $cap = max(1, (int)$GLOBALS['tib10to8_call_cap_override']);
+/* ========== per-minute global budget (slot calls only) ========== */
+
+function tib_10to8_budget_key(): string { return 'tib_10to8_slot_budget'; }
+function tib_10to8_budget_take(int $n = 1): bool {
+    $max = defined('TIB_10TO8_SLOT_RATE_PER_MIN') ? (int) TIB_10TO8_SLOT_RATE_PER_MIN : 45;
+    if ($max <= 0) return true;
+    $now = tib_10to8_now(); $win=60;
+    $entry = get_transient(tib_10to8_budget_key());
+    if (!is_array($entry) || ($now - ($entry['t'] ?? 0)) >= $win) $entry = ['t'=>$now,'c'=>0];
+    if ($entry['c'] + $n > $max) { tib_10to8_dbg('BUDGET exhausted: c='.$entry['c'].' max='.$max); return false; }
+    $entry['c'] += $n;
+    $ttl = max(1, $win - ($now - $entry['t']));
+    set_transient(tib_10to8_budget_key(), $entry, $ttl);
+    return true;
+}
+
+/* ========== ID + URL helpers ========== */
+
+function tib_10to8_extract_id($value): ?string {
+    if (!$value) return null;
+    $s = trim((string) $value);
+    if ($s === '') return null;
+    if (ctype_digit($s)) return $s;
+    return (preg_match('~/(\d+)/?$~', $s, $m)) ? $m[1] : null;
+}
+function tib_10to8_staff_to_uri($value): ?string {
+    $id = tib_10to8_extract_id($value);
+    return $id ? "https://app.10to8.com/api/booking/v2/staff/{$id}/" : null;
+}
+function tib_10to8_service_to_uri($value): ?string {
+    $id = tib_10to8_extract_id($value);
+    return $id ? "https://app.10to8.com/api/booking/v2/service/{$id}/" : null;
+}
+function tib_10to8_staff_booking_url(string $staff_id): ?string {
+    if (!defined('TIB_10TO8_BOOK_SLUG') || !TIB_10TO8_BOOK_SLUG) return null;
+    return sprintf('https://app.10to8.com/book/%s/staff/%s/', TIB_10TO8_BOOK_SLUG, $staff_id);
+}
+
+/* ========== service list (override with a filter) ========== */
+
+function tib_10to8_get_service_uris(): array {
+    $services = [
+        'https://app.10to8.com/api/booking/v2/service/1886311/', // Individual (Cardiff)
+        'https://app.10to8.com/api/booking/v2/service/1767089/', // Individual (Swansea)
+        'https://app.10to8.com/api/booking/v2/service/1767110/', // Individual (Online)
+        'https://app.10to8.com/api/booking/v2/service/1956384/', // Young Person (Swansea)
+        'https://app.10to8.com/api/booking/v2/service/1050705/', // Young Person (Cardiff)
+        'https://app.10to8.com/api/booking/v2/service/1889844/', // Young Person (Online)
+        'https://app.10to8.com/api/booking/v2/service/1943583/', // Couples (Swansea)
+        'https://app.10to8.com/api/booking/v2/service/1889847/', // Couples (Cardiff)
+        'https://app.10to8.com/api/booking/v2/service/1889848/', // Couples (Online)
+    ];
+    return apply_filters('tib_10to8_service_uris', $services);
+}
+
+/* ========== cache key builder ========== */
+
+function tib_10to8_normalize_service_uris($service_ids): array {
+    $raw = is_array($service_ids) ? $service_ids : explode(',', (string) $service_ids);
+    $uris = [];
+    foreach ($raw as $sv) {
+        $sv = trim((string)$sv); if ($sv==='') continue;
+        if (stripos($sv, '/api/booking/v2/service/') !== false) $uris[] = rtrim($sv, '/') . '/';
+        else {
+            $id = tib_10to8_extract_id($sv);
+            if ($id) $uris[] = "https://app.10to8.com/api/booking/v2/service/{$id}/";
+        }
     }
-    return $cap;
+    $uris = array_values(array_unique($uris));
+    sort($uris, SORT_STRING);
+    return $uris;
+}
+function tib_10to8_build_cache_key($service_ids, $staff_id, int $days): array {
+    $service_uris = tib_10to8_normalize_service_uris($service_ids);
+    $staff_uri    = tib_10to8_staff_to_uri($staff_id);
+    $days         = max(1, (int) $days);
+    $key          = 'tib_10to8_nextslot_multi_' . md5(implode('|', $service_uris) . '|' . $staff_uri . '|' . $days);
+    return [$key, $service_uris, $staff_uri, $days];
 }
 
-/**
- * Allow templates or hooks to raise the cap for the current request (e.g., archive pages).
- * Example in functions.php (archive template): tib_10to8_set_call_cap(256);
- */
-function tib_10to8_set_call_cap(int $cap): void {
-    $GLOBALS['tib10to8_call_cap_override'] = max(1, $cap);
+/* ========== service meta (locations, staff), memo + 10min cache ========== */
+
+function tib_10to8_fetch_service_meta(array $service_uris): array {
+    $api_key = defined('TIB_10TO8_API_KEY') ? TIB_10TO8_API_KEY : '';
+    if (!$api_key) return [];
+    static $req_meta = []; // request-local memo
+
+    $headers = ['Authorization' => 'Token ' . $api_key, 'Accept' => 'application/json'];
+    $out = [];
+
+    foreach ($service_uris as $svc) {
+        if (array_key_exists($svc, $req_meta)) { $out[$svc] = $req_meta[$svc] ?? []; continue; }
+
+        $ckey = 'tib_10to8_service_meta_' . md5($svc);
+        $cached = tib_10to8_get_transient($ckey);
+        if ($cached !== false) { $req_meta[$svc] = $cached; $out[$svc] = $cached; continue; }
+
+        $resp = wp_remote_get($svc, ['headers'=>$headers, 'timeout'=>10, 'decompress'=>false]);
+        if (is_wp_error($resp)) { tib_10to8_dbg('service meta WP_Error url='.$svc.' msg='.$resp->get_error_message()); $req_meta[$svc]=null; continue; }
+
+        $code = wp_remote_retrieve_response_code($resp);
+        $body_raw = wp_remote_retrieve_body($resp);
+        $body = json_decode($body_raw, true);
+
+        if ($code === 429) {
+            tib_10to8_dbg('service meta 429 url='.$svc);
+            tib_10to8_throttle_mark(tib_10to8_parse_retry_seconds($body_raw));
+            $req_meta[$svc] = null; // don't hammer this request
+            continue;
+        }
+        if ($code !== 200 || !is_array($body)) { tib_10to8_dbg('service meta fail code='.$code.' url='.$svc); $req_meta[$svc]=null; continue; }
+
+        $locations = isset($body['locations']) && is_array($body['locations']) ? array_values(array_filter($body['locations'])) : [];
+        foreach ($locations as &$L) { $L = rtrim($L, '/') . '/'; } unset($L);
+
+        $val = ['locations' => $locations, 'staff' => (isset($body['staff']) && is_array($body['staff'])) ? $body['staff'] : []];
+        tib_10to8_set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS);
+        $req_meta[$svc] = $val;
+        $out[$svc] = $val;
+    }
+    return $out;
 }
 
-/** Request-local memo (avoids re-calling in the same PHP request) */
+function tib_10to8_services_offered_by_staff(string $staff_uri, array $service_uris): array {
+    $meta = tib_10to8_fetch_service_meta($service_uris);
+    $needle = tib_10to8_extract_id($staff_uri);
+    if (!$needle) return [];
+    $out = [];
+    foreach ($service_uris as $svc) {
+        if (empty($meta[$svc]['staff'])) continue;
+        foreach ($meta[$svc]['staff'] as $s) {
+            if (tib_10to8_extract_id($s) === $needle) {
+                $locs = $meta[$svc]['locations'] ?? [];
+                if ($locs) $out[$svc] = ['locations' => array_values(array_filter($locs))];
+                break;
+            }
+        }
+    }
+    tib_10to8_dbg('prefilter map size='.count($out).' of '.count($service_uris).' services for staff_id='.$needle);
+    return $out;
+}
+
+/* ========== request-local memo for final slot result ========== */
 function tib_10to8_request_memo_get(string $key) {
     return $GLOBALS['tib10to8_request_memo'][$key] ?? null;
 }
@@ -56,301 +199,8 @@ function tib_10to8_request_memo_set(string $key, $val): void {
     $GLOBALS['tib10to8_request_memo'][$key] = $val;
 }
 
+/* ========== core: earliest slot (multi-service, across locations) ========== */
 
-function tib_10to8_dbg(string $msg): void {
-    if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
-        error_log('[tib-10to8] ' . $msg);
-    }
-}
-
-/**
- * Pre-warm next-slot cache for many therapists in one go.
- * $staff_list: array of raw staff values (IDs or URLs).
- * $services:   array of services (IDs or URLs).
- * Returns number of warmed entries.
- */
-function tib_10to8_prime_next_slots(array $staff_list, array $services, int $days = 28, int $soft_cap = 100): int {
-    if (tib_10to8_cache_disabled()) return 0; // respect global off
-
-    $warmed = 0;
-    $GLOBALS['tib10to8_soft_cap'] = max(8, (int)$soft_cap); // temporary higher budget for this run
-
-    foreach ($staff_list as $raw_staff) {
-        // Run the online getter; it will write the transient (or null) using our unified key.
-        tib_get_next_10to8_slot_multi($services, $raw_staff, $days);
-        $warmed++;
-        // tiny throttle to be nice to 10to8
-        usleep(120000); // 0.12s
-    }
-    return $warmed;
-}
-
-
-/* ---------------------------
- * Normalisers & small helpers
- * --------------------------- */
-
-function tib_10to8_cache_disabled(): bool {
-    return (defined('TIB_10TO8_DISABLE_CACHE') && TIB_10TO8_DISABLE_CACHE);
-}
-
-function tib_10to8_request_flush(): bool {
-    return isset($_GET['tib10to8_flush']);
-}
-
-function tib_10to8_get_transient(string $key) {
-    if (tib_10to8_cache_disabled() || tib_10to8_request_flush()) return false;
-    return get_transient($key);
-}
-
-function tib_10to8_set_transient(string $key, $value, int $ttl): bool {
-    if (tib_10to8_cache_disabled()) return false; // global OFF = no writes
-    return set_transient($key, $value, $ttl);      // flush still writes
-}
-
-function tib_10to8_delete_transient(string $key): bool {
-    return delete_transient($key);
-}
-
-function tib_10to8_effective_call_cap(): int {
-    if (isset($GLOBALS['tib10to8_soft_cap']) && (int)$GLOBALS['tib10to8_soft_cap'] > 0) {
-        return (int)$GLOBALS['tib10to8_soft_cap'];
-    }
-    if (defined('TIB_10TO8_CALL_CAP')) return (int)TIB_10TO8_CALL_CAP;
-    return 64;
-}
-
-
-/**
- * Fetch minimal service metadata (locations, staff) for a list of services.
- * Returns: [ service_uri => ['locations' => [...], 'staff' => [...]] ]
- */
-function tib_10to8_fetch_service_meta(array $service_uris): array {
-    $api_key = defined('TIB_10TO8_API_KEY') ? TIB_10TO8_API_KEY : '';
-    if (!$api_key) return [];
-
-    // request-local memo (survives only for this PHP request)
-    static $req_meta = []; // [ service_uri => ['locations'=>[], 'staff'=>[]] | null on failure ]
-
-    $headers = ['Authorization' => 'Token ' . $api_key, 'Accept' => 'application/json'];
-    $out = [];
-
-    foreach ($service_uris as $svc) {
-        // 1) Use request memo if present
-        if (array_key_exists($svc, $req_meta)) { $out[$svc] = $req_meta[$svc] ?? []; continue; }
-
-        // 2) Use transient (no-op when cache is disabled)
-        $ckey   = 'tib_10to8_service_meta_' . md5($svc);
-        $cached = tib_10to8_get_transient($ckey);
-        if ($cached !== false) {
-            $req_meta[$svc] = $cached; // also memo
-            $out[$svc] = $cached;
-            continue;
-        }
-
-        // 3) Fetch once
-        $resp = wp_remote_get($svc, ['headers'=>$headers, 'timeout'=>10, 'decompress'=>false]);
-        if (is_wp_error($resp)) {
-            tib_10to8_dbg('service meta fetch failed code=WP_Error url='.$svc.' msg='.$resp->get_error_message());
-            $req_meta[$svc] = null; // memo the failure to avoid refetch loops
-            continue;
-        }
-        $code = wp_remote_retrieve_response_code($resp);
-        $body = json_decode(wp_remote_retrieve_body($resp), true);
-
-        if ($code === 429) {
-            // Rate limited: memo a soft-failure so later therapists don’t refetch again this request
-            tib_10to8_dbg('service meta fetch failed code=429 url='.$svc);
-            $req_meta[$svc] = null;
-            continue;
-        }
-        if ($code !== 200 || !is_array($body)) {
-            tib_10to8_dbg('service meta fetch failed code='.$code.' url='.$svc);
-            $req_meta[$svc] = null;
-            continue;
-        }
-
-        // Normalise
-        $locations = isset($body['locations']) && is_array($body['locations']) ? array_values(array_filter($body['locations'])) : [];
-        foreach ($locations as &$L) { $L = rtrim($L, '/') . '/'; } unset($L);
-
-        $val = [
-            'locations' => $locations,
-            'staff'     => (isset($body['staff']) && is_array($body['staff'])) ? $body['staff'] : [],
-        ];
-
-        // store
-        tib_10to8_set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS); // no-op if cache disabled
-        $req_meta[$svc] = $val; // always memo for this request
-        $out[$svc] = $val;
-    }
-
-    return $out;
-}
-
-function tib_10to8_prime_service_meta(array $service_uris): void {
-    // Just call fetch once; with the request memo in place this populates memory for the whole render.
-    tib_10to8_fetch_service_meta($service_uris);
-}
-
-
-/**
- * Given a staff URI and candidate services, return only services that staff can deliver,
- * plus each service's valid location list (in your tenant, usually exactly one).
- * Returns: [ service_uri => ['locations' => [...]] ]
- */
-function tib_10to8_services_offered_by_staff(string $staff_uri, array $service_uris): array {
-    $meta = tib_10to8_fetch_service_meta($service_uris);
-    $needle_id = tib_10to8_extract_id($staff_uri);
-    if (!$needle_id) return [];
-
-    $out = [];
-    foreach ($service_uris as $svc) {
-        if (!isset($meta[$svc])) continue;
-        $staff_list = $meta[$svc]['staff'] ?? [];
-        if (!$staff_list) continue;
-
-        $has = false;
-        foreach ($staff_list as $s) {
-            $id = tib_10to8_extract_id($s);
-            if ($id && $id === $needle_id) { $has = true; break; }
-        }
-        if ($has) {
-            $locs = $meta[$svc]['locations'] ?? [];
-            $out[$svc] = ['locations' => array_values(array_filter($locs))];
-        }
-    }
-    tib_10to8_dbg('prefilter map size='.count($out).' of '.count($service_uris).' services for staff_id='.$needle_id);
-    return $out;
-}
-
-
-
-/**
- * Extract a numeric ID from:
- *  - "251651"
- *  - "https://app.10to8.com/api/booking/v2/staff/251651/"
- *  - "https://app.10to8.com/book/SLUG/staff/251651/"
- *  - or any .../<digits>/ tail.
- */
-function tib_10to8_extract_id($value): ?string
-{
-    if (!$value) return null;
-    $s = trim((string)$value);
-    if ($s === '') return null;
-    if (ctype_digit($s)) return $s;
-    if (preg_match('~/(\d+)/?$~', $s, $m)) return $m[1];
-    return null;
-}
-
-/** Staff: ID/URL -> full API URI */
-function tib_10to8_staff_to_uri($value): ?string
-{
-    $id = tib_10to8_extract_id($value);
-    return $id ? "https://app.10to8.com/api/booking/v2/staff/{$id}/" : null;
-}
-
-/** Service: ID/URL -> full API URI */
-function tib_10to8_service_to_uri($value): ?string
-{
-    $id = tib_10to8_extract_id($value);
-    return $id ? "https://app.10to8.com/api/booking/v2/service/{$id}/" : null;
-}
-
-/** Build booking URL for a staff ID (needs TIB_10TO8_BOOK_SLUG) */
-function tib_10to8_staff_booking_url(string $staff_id): ?string
-{
-    if (!defined('TIB_10TO8_BOOK_SLUG') || !TIB_10TO8_BOOK_SLUG) return null;
-    return sprintf('https://app.10to8.com/book/%s/staff/%s/', TIB_10TO8_BOOK_SLUG, $staff_id);
-}
-
-/** Build full API URI for a staff ID */
-function tib_10to8_staff_api_uri(string $staff_id): string
-{
-    return sprintf('https://app.10to8.com/api/booking/v2/staff/%s/', $staff_id);
-}
-
-
-
-/**
- * Normalise a list of services (IDs or URLs) to sorted unique API URIs.
- */
-function tib_10to8_normalize_service_uris($service_ids): array {
-    $raw = is_array($service_ids)
-        ? $service_ids
-        : array_map('trim', explode(',', (string)$service_ids));
-
-    $uris = [];
-    foreach ($raw as $sv) {
-        if (!$sv) continue;
-        $sv = trim($sv);
-        if (stripos($sv, '/api/booking/v2/service/') !== false) {
-            $uris[] = rtrim($sv, '/') . '/';
-        } elseif (preg_match('~/service/(\d+)/?~', $sv, $m) || preg_match('~^\d+$~', $sv)) {
-            $id = isset($m[1]) ? $m[1] : $sv;
-            $uris[] = "https://app.10to8.com/api/booking/v2/service/{$id}/";
-        }
-    }
-    $uris = array_values(array_unique($uris));
-    sort($uris, SORT_STRING); // IMPORTANT: stable order for cache key
-    return $uris;
-}
-
-/**
- * Build a consistent cache key and return the normalised parts too.
- */
-function tib_10to8_build_cache_key($service_ids, $staff_id, int $days): array {
-    $service_uris = tib_10to8_normalize_service_uris($service_ids);
-    $staff_uri    = tib_10to8_staff_to_uri($staff_id);
-    $days         = max(1, (int)$days);
-    $key          = 'tib_10to8_nextslot_multi_' . md5(implode('|', $service_uris) . '|' . $staff_uri . '|' . $days);
-    return [$key, $service_uris, $staff_uri, $days];
-}
-
-/* ------------------------------------
- * Services list (override friendly)
- * ------------------------------------ */
-
-/**
- * Default service URIs used for next-slot lookups.
- * You can override via the 'tib_10to8_service_uris' filter, or later move to wp_options.
- */
-function tib_10to8_get_service_uris(): array
-{
-    $services = [
-        'https://app.10to8.com/api/booking/v2/service/1886311/',
-        // Individual Session (Cardiff)
-        'https://app.10to8.com/api/booking/v2/service/1767089/',
-        // Individual Session (Swansea)
-        'https://app.10to8.com/api/booking/v2/service/1767110/',
-        // Individual Session (Online)
-        'https://app.10to8.com/api/booking/v2/service/1956384/',
-        // Young Person Session (Swansea)
-        'https://app.10to8.com/api/booking/v2/service/1050705/',
-        // Young Person Session (Cardiff)
-        'https://app.10to8.com/api/booking/v2/service/1889844/',
-        // Young Person Session (Online)
-        'https://app.10to8.com/api/booking/v2/service/1943583/',
-        // Relationships/Couples Session (Swansea)
-        'https://app.10to8.com/api/booking/v2/service/1889847/',
-        // Relationships/Couples Session (Cardiff)
-        'https://app.10to8.com/api/booking/v2/service/1889848/',
-        // Relationships/Couples Session (Online)
-    ];
-    return apply_filters('tib_10to8_service_uris', $services);
-}
-
-/* ---------------------------------------------------------
- * Core: earliest slot across services & all their locations
- * --------------------------------------------------------- */
-
-/**
- * Get the earliest slot for (one or many services, one staff) across all service locations.
- * @param string|array $service_ids IDs, API URLs, booking URLs, or mix
- * @param string       $staff_id    ID, API URL, or booking URL
- * @param int          $days_ahead  Window in days (default 60)
- * @return array|null|WP_Error      ['slot_id','start_iso','end_iso','start_local','date','time','raw'] or null if none
- */
 if (!function_exists('tib_get_next_10to8_slot_multi')) {
     function tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead = 60) {
         $api_key = defined('TIB_10TO8_API_KEY') ? TIB_10TO8_API_KEY : '';
@@ -358,104 +208,75 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
         $debug = defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG;
 
-        // Build key + normalised parts first (needed for memo/cache)
-        [$cache_key, $service_uris, $staff_uri, $days_ahead] =
-            tib_10to8_build_cache_key($service_ids, $staff_id, (int) $days_ahead);
-        if (!$staff_uri || empty($service_uris)) {
-            return new WP_Error('tib_10to8_config', 'Bad staff or service list');
-        }
+        // Normalize and key
+        [$cache_key, $service_uris, $staff_uri, $days_ahead] = tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
+        if (!$staff_uri || !$service_uris) return new WP_Error('tib_10to8_config', 'Bad staff or service list');
 
-        // Request flags
-        $cache_off = tib_10to8_cache_disabled();
-        $flush     = function_exists('tib_10to8_request_flush') ? tib_10to8_request_flush() : isset($_GET['tib10to8_flush']);
-        tib_10to8_dbg("key=$cache_key staff=$staff_uri off=".($cache_off?'1':'0')." flush=".($flush?'1':'0'));
+        tib_10to8_dbg('key='.$cache_key.' staff='.$staff_uri.' off='.(tib_10to8_cache_disabled()?'1':'0').' flush='.(tib_10to8_request_flush()?'1':'0'));
 
-        if ($debug) {
-            echo "\n<!-- 10to8[MULTI] key=$cache_key staff=$staff_uri cache_off=".($cache_off?'1':'0')." flush=".($flush?'1':'0')." -->\n";
-        }
+        // Request-local memo
+        if (($memo = tib_10to8_request_memo_get($cache_key)) !== null) { tib_10to8_dbg('MEMO HIT -> '.$cache_key); return $memo; }
 
-        // Request-local memo (works regardless of cache toggle)
-        if (($memo = tib_10to8_request_memo_get($cache_key)) !== null) {
-            tib_10to8_dbg("MEMO HIT -> $cache_key");
-            return $memo;
-        }
-
-        // Cache read (skipped when disabled; flush bypasses read in tib_10to8_get_transient)
-        if (!$cache_off) {
-            $cached = tib_10to8_get_transient($cache_key);
-            if ($cached !== false) {
-                if ($debug) echo "\n<!-- 10to8[MULTI] cache HIT key=$cache_key -->\n";
-                return $cached;
-            }
-            if ($debug) {
-                echo $flush
-                    ? "\n<!-- 10to8[MULTI] cache FLUSH (bypass read) -->\n"
-                    : "\n<!-- 10to8[MULTI] cache MISS key=$cache_key -->\n";
-            }
+        // Cache read
+        if (!$debug && !$GLOBALS['_tib_emit_cache_msg_once'] && $debug) { $GLOBALS['_tib_emit_cache_msg_once']=true; }
+        $cached = tib_10to8_get_transient($cache_key);
+        if ($cached !== false) {
+            if ($debug) echo "\n<!-- 10to8[MULTI] cache HIT key=$cache_key -->\n";
+            return $cached;
         } else {
-            if ($debug) echo "\n<!-- 10to8[MULTI] cache: OFF (global) -->\n";
+            if ($debug) echo tib_10to8_request_flush()
+                ? "\n<!-- 10to8[MULTI] cache FLUSH (bypass read) -->\n"
+                : "\n<!-- 10to8[MULTI] cache MISS key=$cache_key -->\n";
         }
 
-        // Prefilter services by staff where metadata allows; fall back to all services' locations
+        // Global throttle guard
+        if (tib_10to8_throttle_active()) {
+            tib_10to8_dbg('GLOBAL THROTTLE active — skip API for '.$cache_key);
+            return null; // do NOT write null
+        }
+
+        // Prefilter services for this staff (reduces 400s)
         $svc_map = tib_10to8_services_offered_by_staff($staff_uri, $service_uris);
         if (empty($svc_map)) {
-            tib_10to8_dbg("prefilter empty; falling back to all services");
+            tib_10to8_dbg('prefilter empty; falling back to all services');
             $meta_all = tib_10to8_fetch_service_meta($service_uris);
             foreach ($service_uris as $svc_uri) {
-                $svc_map[$svc_uri] = ['locations' => ($meta_all[$svc_uri]['locations'] ?? [])];
+                $locs = $meta_all[$svc_uri]['locations'] ?? [];
+                if ($locs) $svc_map[$svc_uri] = ['locations' => $locs];
             }
             if (empty($svc_map)) {
-                tib_10to8_dbg("fallback also empty for key=$cache_key");
-                tib_10to8_request_memo_set($cache_key, null);
-                tib_10to8_set_transient($cache_key, null, 3 * MINUTE_IN_SECONDS);
+                // Nothing we can call; do not poison cache
                 return null;
             }
         }
 
         // Request bits
-        $headers = [
-            'Authorization' => 'Token ' . $api_key,
-            'Accept'        => 'application/json',
-        ];
-        $from      = gmdate('Y-m-d');
-        $to        = gmdate('Y-m-d', strtotime('+' . (int)$days_ahead . ' days'));
+        $headers = ['Authorization' => 'Token ' . $api_key, 'Accept' => 'application/json'];
+        $from = gmdate('Y-m-d');
+        $to   = gmdate('Y-m-d', strtotime('+'.(int)$days_ahead.' days'));
         $slot_base = 'https://app.10to8.com/api/booking/v2/slot/';
 
         $parse_rows = function ($raw) {
             $body = json_decode($raw, true);
             if (!is_array($body)) return [];
             if (isset($body['results']) && is_array($body['results'])) return $body['results'];
-            if (array_values($body) === $body) return $body; // pure list
+            if (array_values($body) === $body) return $body;
             return [];
         };
 
-        // Iterate across (service × location) with a request-global budget
         $all_slots = [];
-        $made_api_calls = 0;
+        $made_calls = 0;
+        $last_code = null;
+        $last_count = null;
 
-        $svc_idx = 0;
         foreach ($svc_map as $service_uri => $info) {
-            $svc_idx++;
             $locations = isset($info['locations']) && is_array($info['locations']) ? $info['locations'] : [];
-            if (empty($locations)) {
-                if ($debug) echo "\n<!-- 10to8[MULTI] service#$svc_idx has no locations: $service_uri -->\n";
-                continue;
-            }
+            if (!$locations) continue;
 
-            $loc_idx = 0;
             foreach ($locations as $loc_uri) {
-                $loc_idx++;
+                if (tib_10to8_throttle_active()) { tib_10to8_dbg('GLOBAL THROTTLE mid-loop'); break 2; }
+                if (!tib_10to8_budget_take(1))   { tib_10to8_dbg('BUDGET mid-loop stop');   break 2; }
 
-                // Budget check
-                $cap  = tib_10to8_call_cap();
-                $used = tib_10to8_call_count();
-                if ($used >= $cap) {
-                    tib_10to8_dbg("CALL CAP REACHED used=$used cap=$cap (key=$cache_key) — stopping");
-                    if ($debug) echo "\n<!-- 10to8[MULTI] CALL CAP REACHED used=$used cap=$cap -->\n";
-                    break 2;
-                }
-
-                // Build URL
                 $url = add_query_arg([
                     'service'    => $service_uri,
                     'staff'      => $staff_uri,
@@ -465,79 +286,72 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
                     'page_size'  => 50,
                 ], $slot_base);
 
-                // Call
-                tib_10to8_inc_call_count();
-                $t0   = microtime(true);
-                $resp = wp_remote_get($url, ['headers' => $headers, 'timeout' => 5, 'decompress' => false]);
-                $ms   = (int)((microtime(true) - $t0) * 1000);
+                $t0 = microtime(true);
+                $resp = wp_remote_get($url, ['headers'=>$headers, 'timeout'=>5, 'decompress'=>false]);
+                $ms  = (int)((microtime(true) - $t0) * 1000);
 
-                if (is_wp_error($resp)) {
-                    tib_10to8_dbg("SLOT GET ERR code=WP_Error ms={$ms} url=$url msg=" . $resp->get_error_message());
-                    continue;
-                }
+                if (is_wp_error($resp)) { tib_10to8_dbg('SLOT GET WP_Error ms='.$ms.' url='.$url.' msg='.$resp->get_error_message()); continue; }
 
                 $code = wp_remote_retrieve_response_code($resp);
                 $raw  = wp_remote_retrieve_body($resp);
-                tib_10to8_dbg("SLOT GET code=$code ms={$ms} url=$url");
+                tib_10to8_dbg('SLOT GET code='.$code.' ms='.$ms.' url='.$url);
 
+                if ($code === 429) {
+                    $sec = tib_10to8_parse_retry_seconds($raw);
+                    tib_10to8_dbg('SLOT 429 — backoff '.$sec.'s');
+                    tib_10to8_throttle_mark($sec);
+                    return null; // do NOT write null
+                }
                 if ($code !== 200) {
-                    tib_10to8_dbg("SLOT GET NON200 code=$code peek=" . substr(trim((string)$raw), 0, 160));
+                    tib_10to8_dbg('SLOT GET NON200 code='.$code.' peek='.substr(trim((string)$raw), 0, 160));
+                    $last_code = $code; $last_count = null;
                     continue;
                 }
 
-                $rows  = $parse_rows($raw);
-                $count = is_array($rows) ? count($rows) : 0;
+                $rows = $parse_rows($raw);
+                $cnt  = is_array($rows) ? count($rows) : 0;
+                if ($debug) echo "\n<!-- 10to8[MULTI] 200 OK | results: $cnt | URL: $url -->\n";
+                $last_code  = 200; $last_count = $cnt; $made_calls++;
 
-                if ($debug) echo "\n<!-- 10to8[MULTI] svc#$svc_idx loc#$loc_idx: 200 OK | results: $count -->\n";
-
-                if ($count > 0) {
+                if ($cnt > 0) {
                     foreach ($rows as &$r) {
-                        if (!isset($r['_tib_location'])) $r['_tib_location'] = $loc_uri;
-                        if (!isset($r['_tib_service']))  $r['_tib_service']  = $service_uri;
+                        $r['_tib_location'] = $r['_tib_location'] ?? $loc_uri;
+                        $r['_tib_service']  = $r['_tib_service']  ?? $service_uri;
                     }
                     unset($r);
                     $all_slots = array_merge($all_slots, $rows);
                 }
-
-                $made_api_calls++;
             }
         }
 
-        // Nothing found
+        // No slots found
         if (empty($all_slots)) {
-            if ($made_api_calls > 0) {
-                tib_10to8_request_memo_set($cache_key, null);
+            $clean_zero = ($made_calls > 0 && $last_code === 200 && ((int)$last_count) === 0);
+            if ($clean_zero) {
                 tib_10to8_set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS);
-                tib_10to8_dbg("WRITE null -> $cache_key (ttl 5m)");
-                if ($debug) echo "\n<!-- 10to8[MULTI] wrote NULL to cache key=$cache_key (ttl 5m) -->\n";
+                tib_10to8_dbg('WRITE null -> '.$cache_key.' (ttl 5m) [clean-200-zero]');
+            } else {
+                tib_10to8_dbg('NO WRITE (preserve cache) last_code='.var_export($last_code, true));
             }
             return null;
         }
 
-        // Detect time keys (tenant uses start_datetime / end_datetime)
+        // Detect time fields (tenant may use start_datetime)
         $first = $all_slots[0];
-        $detect_key = function (array $row, array $cands) {
+        $detect_key = function(array $row, array $cands){
             $lower = array_change_key_case($row, CASE_LOWER);
             foreach ($cands as $c) {
                 $c2 = strtolower($c);
-                if (array_key_exists($c2, $lower)) {
-                    foreach ($row as $k => $v) if (strtolower($k) === $c2) return $k;
-                }
+                if (array_key_exists($c2, $lower))
+                    foreach ($row as $k=>$v) if (strtolower($k) === $c2) return $k;
             }
             return null;
         };
         $start_key = $detect_key($first, ['start_datetime','start','start_dt','start_at','datetime','begin']);
         $end_key   = $detect_key($first,   ['end_datetime','end','end_dt','end_at','datetime_end','finish']);
+        if (!$start_key) { tib_10to8_dbg('no start key detected'); return null; }
 
-        if (!$start_key) {
-            if ($debug) echo "\n<!-- 10to8[MULTI] could not detect start key; sample: " . esc_html(substr(json_encode($first), 0, 400)) . " -->\n";
-            tib_10to8_request_memo_set($cache_key, null);
-            tib_10to8_set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS);
-            return null;
-        }
-
-        // Earliest slot across all valid services/locations
-        usort($all_slots, function ($a, $b) use ($start_key) {
+        usort($all_slots, function($a,$b) use($start_key){
             $as = isset($a[$start_key]) ? strtotime($a[$start_key]) : PHP_INT_MAX;
             $bs = isset($b[$start_key]) ? strtotime($b[$start_key]) : PHP_INT_MAX;
             return $as <=> $bs;
@@ -557,165 +371,63 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
             'end_iso'     => $end_iso,
             'start_local' => $when->format('Y-m-d H:i'),
             'date'        => wp_date('D j M Y', $when->getTimestamp(), $tz),
-            'time'        => wp_date('H:i',        $when->getTimestamp(), $tz),
+            'time'        => wp_date('H:i',      $when->getTimestamp(), $tz),
             'raw'         => $next,
         ];
 
-        if ($debug) {
-            $chosen_svc = $next['_tib_service']  ?? 'unknown-service';
-            $chosen_loc = $next['_tib_location'] ?? 'unknown-location';
-            echo "\n<!-- 10to8[MULTI] chosen: service=$chosen_svc | location=$chosen_loc | start_iso={$out['start_iso']} | local={$out['date']} {$out['time']} -->\n";
-        }
-
         tib_10to8_request_memo_set($cache_key, $out);
-        tib_10to8_dbg("WRITE slot  -> $cache_key {$out['start_iso']} ({$out['date']} {$out['time']})");
-
-        // Writes only if cache enabled (wrapper no-ops when disabled)
+        tib_10to8_dbg('WRITE slot  -> '.$cache_key.' '.$out['start_iso'].' ('.$out['date'].' '.$out['time'].')');
         tib_10to8_set_transient($cache_key, $out, 10 * MINUTE_IN_SECONDS);
         return $out;
-    }
-}
+    }}
+/* ========== cached getter (no network) ========== */
 
-
-/**
- * Get cached next-slot only (no network). Returns array|null.
- * Must compute the SAME cache key as the online version.
- */
 function tib_get_next_10to8_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60) {
-    // Normalise staff
-    $staff_uri = function_exists('tib_10to8_staff_to_uri') ? tib_10to8_staff_to_uri($staff_id) : null;
-    if (!$staff_uri) {
-        $sid = preg_match('~/(\d+)/?$~', (string)$staff_id, $m) ? $m[1] : (ctype_digit((string)$staff_id) ? (string)$staff_id : null);
-        if ($sid) $staff_uri = "https://app.10to8.com/api/booking/v2/staff/{$sid}/";
-    }
-    if (!$staff_uri) return null;
-
-    // Normalise & sort services
-    $services_in = is_array($service_ids)
-        ? array_values(array_filter(array_map('trim', $service_ids)))
-        : array_values(array_filter(array_map('trim', explode(',', (string)$service_ids))));
-    $service_uris = [];
-    foreach ($services_in as $sv) {
-        if (stripos($sv, '/api/booking/v2/service/') !== false) $service_uris[] = rtrim($sv, '/') . '/';
-        else {
-            $uri = function_exists('tib_10to8_service_to_uri') ? tib_10to8_service_to_uri($sv) : null;
-            if (!$uri) {
-                $sid = preg_match('~/(\d+)/?$~', (string)$sv, $m) ? $m[1] : (ctype_digit((string)$sv) ? (string)$sv : null);
-                $uri = $sid ? "https://app.10to8.com/api/booking/v2/service/{$sid}/" : null;
-            }
-            if ($uri) $service_uris[] = $uri;
-        }
-    }
-    $service_uris = array_values(array_unique($service_uris));
-    if (empty($service_uris)) return null;
-    sort($service_uris, SORT_STRING);
-
-    $cache_key = 'tib_10to8_nextslot_multi_' . md5(implode('|', $service_uris) . '|' . $staff_uri . '|' . (int)$days_ahead);
+    [$cache_key] = tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
     $cached = tib_10to8_get_transient($cache_key);
     return ($cached !== false) ? $cached : null;
 }
 
+/* ========== renderers ========== */
+
 /**
- * Render cached; if missing, optionally do a tiny online fetch to fill it.
+ * LISTS: read cache only (safe under rate limits).
  */
-function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability', $soft_fetch = false, $soft_cap   = 16
-) {
-    $cache_off = tib_10to8_cache_disabled();
-    $flush     = tib_10to8_request_flush();
-
-    // When global cache is OFF: always go live, no transients used.
-    if ($cache_off) {
-        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
-            echo "\n<!-- 10to8[RENDER] cache OFF → live fetch -->\n";
-        }
-        $slot = tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
-        if (is_wp_error($slot) || !$slot) {
-            return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
-        }
-        return sprintf(
-            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
-            esc_attr($slot['start_iso']),
-            esc_html($slot['date']),
-            esc_html($slot['time'])
-        );
-    }
-
-    // Cache ON path (flush only bypasses reads)
-    [$cache_key, $service_uris, $staff_uri, $days_ahead] =
-        tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
-
-    if (!$staff_uri || empty($service_uris)) {
-        return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
-    }
-
-    $cached = tib_10to8_get_transient($cache_key); // respects flush (bypass read)
-    if ($cached !== false) {
-        if (is_array($cached)) {
-            return sprintf(
-                '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
-                esc_attr($cached['start_iso']),
-                esc_html($cached['date']),
-                esc_html($cached['time'])
-            );
-        }
-        // cached null → explicitly "no availability"
-        return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
-    }
-
-    // If we get here we either had a miss or a flush (read bypass).
-    if ($soft_fetch && defined('TIB_10TO8_API_KEY') && TIB_10TO8_API_KEY) {
-        if (!empty($soft_cap)) tib_10to8_set_call_cap((int)$soft_cap);
-        // Do a live call; with cache ON it will write; with flush it will still write.
-        tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
-
-        // Try to read what was just written
-        $cached = get_transient($cache_key); // read raw; we want the fresh write
-        if (is_array($cached)) {
-            return sprintf(
-                '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
-                esc_attr($cached['start_iso']),
-                esc_html($cached['date']),
-                esc_html($cached['time'])
-            );
-        }
-    }
-
-    return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+function tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability') {
+    $slot = tib_get_next_10to8_slot_multi_cached($service_ids, $staff_id, $days_ahead);
+    if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) echo "\n<!-- 10to8[RENDER] cached-only ".($slot ? 'HIT' : 'MISS')." -->\n";
+    if (!$slot) return '<span class="tib-slot tib-slot--none">'.esc_html($empty_text).'</span>';
+    return sprintf(
+        '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+        esc_attr($slot['start_iso']),
+        esc_html($slot['date']),
+        esc_html($slot['time'])
+    );
 }
 
 /**
- * ONLINE renderer (hits API via tib_get_next_10to8_slot_multi, then caches).
- * Returns an HTML string (safe to echo or assign).
+ * SINGLES: live call (writes cache on success; preserves it on errors/429).
  */
-if (!function_exists('tib_render_next_slot_multi')) {
-    function tib_render_next_slot_multi($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
-        $slot = tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
-
-        // Optional lightweight debug (you'll see API debug from the getter if TIB_10TO8_DEBUG is true)
-        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG && is_wp_error($slot)) {
-            echo "\n<!-- tib_render_next_slot_multi error: " . esc_html($slot->get_error_message()) . " -->\n";
-        }
-
-        if (is_wp_error($slot) || !$slot) {
-            return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
-        }
-
-        if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG) {
-            echo "\n<!-- 10to8[GET] key=$cache_key | cache_off=".(tib_10to8_cache_disabled()?'1':'0')." | flush=".(tib_10to8_request_flush()?'1':'0')." -->\n";
-        }
-
-        return sprintf(
-            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
-            esc_attr($slot['start_iso']),
-            esc_html($slot['date']),
-            esc_html($slot['time'])
-        );
+function tib_render_next_slot_multi_online($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
+    $slot = tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead);
+    if (defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG && is_wp_error($slot)) {
+        echo "\n<!-- tib_render_next_slot_multi_online error: ".esc_html($slot->get_error_message())." -->\n";
     }
+    if (is_wp_error($slot) || !$slot) {
+        return '<span class="tib-slot tib-slot--none">'.esc_html($empty_text).'</span>';
+    }
+    return sprintf(
+        '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+        esc_attr($slot['start_iso']),
+        esc_html($slot['date']),
+        esc_html($slot['time'])
+    );
 }
 
-/** Convenience echo wrapper (optional). */
-if (!function_exists('tib_echo_next_slot_multi')) {
-    function tib_echo_next_slot_multi($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
-        echo tib_render_next_slot_multi($service_ids, $staff_id, $days_ahead, $empty_text);
-    }
+/** Convenience echo wrappers */
+function tib_echo_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability') {
+    echo tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead, $empty_text);
+}
+function tib_echo_next_slot_multi_online($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
+    echo tib_render_next_slot_multi_online($service_ids, $staff_id, $days_ahead, $empty_text);
 }
