@@ -129,37 +129,70 @@ function tib_10to8_fetch_service_meta(array $service_uris): array {
     $api_key = defined('TIB_10TO8_API_KEY') ? TIB_10TO8_API_KEY : '';
     if (!$api_key) return [];
 
+    // request-local memo (survives only for this PHP request)
+    static $req_meta = []; // [ service_uri => ['locations'=>[], 'staff'=>[]] | null on failure ]
+
     $headers = ['Authorization' => 'Token ' . $api_key, 'Accept' => 'application/json'];
     $out = [];
 
     foreach ($service_uris as $svc) {
-        $ckey = 'tib_10to8_service_meta_' . md5($svc);
-        $cached = tib_10to8_get_transient($ckey);
-        if ($cached !== false) { $out[$svc] = $cached; continue; }
+        // 1) Use request memo if present
+        if (array_key_exists($svc, $req_meta)) { $out[$svc] = $req_meta[$svc] ?? []; continue; }
 
-        $resp = wp_remote_get($svc, ['headers' => $headers, 'timeout' => 10, 'decompress' => false]);
-        if (is_wp_error($resp) || wp_remote_retrieve_response_code($resp) !== 200) {
-            tib_10to8_dbg('service meta fetch failed code='.(is_wp_error($resp)?'WP_Error':wp_remote_retrieve_response_code($resp)).' url='.$svc);
+        // 2) Use transient (no-op when cache is disabled)
+        $ckey   = 'tib_10to8_service_meta_' . md5($svc);
+        $cached = tib_10to8_get_transient($ckey);
+        if ($cached !== false) {
+            $req_meta[$svc] = $cached; // also memo
+            $out[$svc] = $cached;
             continue;
         }
 
+        // 3) Fetch once
+        $resp = wp_remote_get($svc, ['headers'=>$headers, 'timeout'=>10, 'decompress'=>false]);
+        if (is_wp_error($resp)) {
+            tib_10to8_dbg('service meta fetch failed code=WP_Error url='.$svc.' msg='.$resp->get_error_message());
+            $req_meta[$svc] = null; // memo the failure to avoid refetch loops
+            continue;
+        }
+        $code = wp_remote_retrieve_response_code($resp);
         $body = json_decode(wp_remote_retrieve_body($resp), true);
-        if (!is_array($body)) continue;
 
-        // Normalise arrays
+        if ($code === 429) {
+            // Rate limited: memo a soft-failure so later therapists don’t refetch again this request
+            tib_10to8_dbg('service meta fetch failed code=429 url='.$svc);
+            $req_meta[$svc] = null;
+            continue;
+        }
+        if ($code !== 200 || !is_array($body)) {
+            tib_10to8_dbg('service meta fetch failed code='.$code.' url='.$svc);
+            $req_meta[$svc] = null;
+            continue;
+        }
+
+        // Normalise
         $locations = isset($body['locations']) && is_array($body['locations']) ? array_values(array_filter($body['locations'])) : [];
-        // Ensure trailing slash for location URIs to match how we build slot queries
         foreach ($locations as &$L) { $L = rtrim($L, '/') . '/'; } unset($L);
 
-        $raw_staff = isset($body['staff']) && is_array($body['staff']) ? $body['staff'] : [];
-        // Keep raw staff list (mixed forms), we’ll match by ID later
-        $val = ['locations' => $locations, 'staff' => $raw_staff];
+        $val = [
+            'locations' => $locations,
+            'staff'     => (isset($body['staff']) && is_array($body['staff'])) ? $body['staff'] : [],
+        ];
 
-        tib_10to8_set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS);
+        // store
+        tib_10to8_set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS); // no-op if cache disabled
+        $req_meta[$svc] = $val; // always memo for this request
         $out[$svc] = $val;
     }
+
     return $out;
 }
+
+function tib_10to8_prime_service_meta(array $service_uris): void {
+    // Just call fetch once; with the request memo in place this populates memory for the whole render.
+    tib_10to8_fetch_service_meta($service_uris);
+}
+
 
 /**
  * Given a staff URI and candidate services, return only services that staff can deliver,
@@ -168,35 +201,29 @@ function tib_10to8_fetch_service_meta(array $service_uris): array {
  */
 function tib_10to8_services_offered_by_staff(string $staff_uri, array $service_uris): array {
     $meta = tib_10to8_fetch_service_meta($service_uris);
-
-    // Compare using numeric IDs so we don't care whether meta returns IDs or URLs.
     $needle_id = tib_10to8_extract_id($staff_uri);
     if (!$needle_id) return [];
 
     $out = [];
     foreach ($service_uris as $svc) {
         if (!isset($meta[$svc])) continue;
-
         $staff_list = $meta[$svc]['staff'] ?? [];
         if (!$staff_list) continue;
 
-        // Normalise the meta staff list to plain IDs
-        $staff_ids = [];
+        $has = false;
         foreach ($staff_list as $s) {
             $id = tib_10to8_extract_id($s);
-            if ($id) $staff_ids[$id] = true;
+            if ($id && $id === $needle_id) { $has = true; break; }
         }
-
-        if (isset($staff_ids[$needle_id])) {
+        if ($has) {
             $locs = $meta[$svc]['locations'] ?? [];
             $out[$svc] = ['locations' => array_values(array_filter($locs))];
         }
     }
-
-    // Debug counts to the error log
     tib_10to8_dbg('prefilter map size='.count($out).' of '.count($service_uris).' services for staff_id='.$needle_id);
     return $out;
 }
+
 
 
 /**

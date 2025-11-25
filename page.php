@@ -6,6 +6,9 @@
 
 $services = tib_10to8_get_service_uris();
 
+// Prime meta once to avoid 429s later in the render
+tib_10to8_prime_service_meta($services);
+
 // Collect staff for the posts on this page
 $staffs = [];
 foreach ($wp_query->posts as $p) {
