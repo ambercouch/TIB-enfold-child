@@ -14,7 +14,7 @@
       {% set raw_staff = post.meta('staff_link') %}
       {% if raw_staff %}
         {% set services = fn('tib_10to8_get_service_uris') %}
-        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', true, 8) %}
+        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', false) %}
 
         <p class="u-mt-0">
           <strong>Next available: </strong>{{ next_html|raw }}

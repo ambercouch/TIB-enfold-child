@@ -498,6 +498,34 @@ function tib_render_next_slot_multi_online($service_ids, $staff_id, $days_ahead 
     );
 }
 
+function tib_render_next_slot_multi_hybrid($services, $staff_id, $days_ahead = 60, $empty_text = 'No current availability') {
+    // 1) Try live (this also writes to cache on success)
+    $slot = tib_get_next_10to8_slot_multi($services, $staff_id, $days_ahead);
+
+    if (is_array($slot)) {
+        return sprintf(
+            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+            esc_attr($slot['start_iso']),
+            esc_html($slot['date']),
+            esc_html($slot['time'])
+        );
+    }
+
+    // 2) Live failed (429, network, etc.) — try cached read
+    $cached = tib_get_next_10to8_slot_multi_cached($services, $staff_id, $days_ahead);
+    if (is_array($cached)) {
+        return sprintf(
+            '<span class="c-next-appointment__date-time"><time datetime="%s">%s at %s</time></span>',
+            esc_attr($cached['start_iso']),
+            esc_html($cached['date']),
+            esc_html($cached['time'])
+        );
+    }
+
+    // 3) Nothing available
+    return '<span class="tib-slot tib-slot--none">' . esc_html($empty_text) . '</span>';
+}
+
 /** Convenience echo wrappers */
 function tib_echo_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'Check availability') {
     echo tib_render_next_slot_multi_cached($service_ids, $staff_id, $days_ahead, $empty_text);
@@ -505,3 +533,93 @@ function tib_echo_next_slot_multi_cached($service_ids, $staff_id, $days_ahead = 
 function tib_echo_next_slot_multi_online($service_ids, $staff_id, $days_ahead = 60, $empty_text = 'No availability') {
     echo tib_render_next_slot_multi_online($service_ids, $staff_id, $days_ahead, $empty_text);
 }
+
+add_action('tib_10to8_warm_slots_event', function () {
+    $services = tib_10to8_get_service_uris();
+    $staffs   = get_option('tib_10to8_warm_queue', []);
+    if (!$staffs) return;
+
+    $N = 10; // warm more per minute now that we control rate
+    $done = 0;
+
+    while ($done < $N && $staffs) {
+        $staff_id = array_shift($staffs);
+        if (!tib_10to8_throttle_active() && tib_10to8_budget_take(1)) {
+            tib_get_next_10to8_slot_multi($services, $staff_id, 28); // writes cache
+        }
+        $done++;
+    }
+    update_option('tib_10to8_warm_queue', $staffs, false);
+});
+
+
+
+// 1a) add a 60s schedule
+add_filter('cron_schedules', function ($s) {
+    $s['tib_every_minute'] = [
+        'interval' => 60,
+        'display'  => 'Every Minute (TIB)'
+    ];
+    return $s;
+});
+
+// 1b) clear any bad schedules once
+add_action('init', function () {
+    if (isset($_GET['tib10to8_reset_cron']) && current_user_can('manage_options')) {
+        wp_clear_scheduled_hook('tib_10to8_warm_slots_event');
+    }
+    if (!wp_next_scheduled('tib_10to8_warm_slots_event')) {
+        wp_schedule_event(time() + 15, 'tib_every_minute', 'tib_10to8_warm_slots_event');
+    }
+});
+
+// TEMP: drop in (functions.php), run once, then remove
+add_action('admin_init', function () {
+    if (!current_user_can('manage_options') || !isset($_GET['tib_seed_warm'])) return;
+
+    $ptype = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : 'therapist';
+
+    // First pass: only posts that actually have the 'staff_link' meta row
+    $ids_with_meta = get_posts([
+        'post_type'      => $ptype === 'any' ? 'any' : $ptype,
+        'post_status'    => 'any',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'meta_query'     => [[ 'key' => 'staff_link', 'compare' => 'EXISTS' ]],
+    ]);
+
+    // If nothing matched, do a broader sweep and test each post (covers cases where the meta row is empty/serialized/weird)
+    $ids = $ids_with_meta;
+    if (!$ids) {
+        $ids = get_posts([
+            'post_type'      => $ptype === 'any' ? 'any' : $ptype,
+            'post_status'    => 'any',
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+        ]);
+    }
+
+    $staff = [];
+    foreach ($ids as $pid) {
+        $raw = get_post_meta($pid, 'staff_link', true);
+        if (!$raw && function_exists('get_field')) {
+            $raw = get_field('staff_link', $pid);
+        }
+        if (!$raw) continue;
+
+        $sid = function_exists('tib_10to8_extract_id') ? tib_10to8_extract_id($raw) : null;
+        if ($sid) $staff[] = $sid;
+    }
+
+    $staff = array_values(array_unique(array_filter($staff)));
+    update_option('tib_10to8_warm_queue', $staff, false);
+
+    wp_die(
+        sprintf(
+            'Scanned %d posts (%d had a staff_link row). Seeded %d staff into tib_10to8_warm_queue.',
+            count($ids),
+            count($ids_with_meta),
+            count($staff)
+        )
+    );
+});
