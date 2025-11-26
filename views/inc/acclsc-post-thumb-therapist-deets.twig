@@ -14,7 +14,11 @@
       {% set raw_staff = post.meta('staff_link') %}
       {% if raw_staff %}
         {% set services = fn('tib_10to8_get_service_uris') %}
-        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', false) %}
+        {#
+          Use a soft fetch so list views can warm the cache when missing/negative,
+          and bump the soft cap to cover the full therapist roster.
+        #}
+        {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', true, 32) %}
 
         <p class="u-mt-0">
           <strong>Next available: </strong>{{ next_html|raw }}
