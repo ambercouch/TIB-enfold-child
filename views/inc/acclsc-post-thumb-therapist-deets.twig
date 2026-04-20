@@ -10,14 +10,14 @@
       </a>
 
       <hr class="u-mt">
-
+{#
       {% set raw_staff = post.meta('staff_link') %}
       {% if raw_staff %}
         {% set services = fn('tib_10to8_get_service_uris') %}
-        {#
+
           Use a soft fetch so list views can warm the cache when missing/negative,
           and bump the soft cap to cover the full therapist roster.
-        #}
+
         {% set next_html = fn('tib_render_next_slot_multi_cached', services, raw_staff, 28, 'No current availability', true, 32) %}
 
         <p class="u-mt-0">
@@ -25,6 +25,7 @@
         </p>
       {% endif %}
       <hr class="u-mt">
+      #}
       {% if post.meta('staff_link') %}
         <p class="u-mt-0" >Book a session with {{ post.title | split(' ') | first }}</p>
         <p>
@@ -64,7 +65,7 @@
           {% endif %}
         {% endfor %}
 
-        {% set description = post.meta('description') ?: post.excerpt ?: first_paragraph|slice(0, 100) ~ '...' %}
+        {% set description = post.meta('short_description') ?: post.excerpt ?: first_paragraph|slice(0, 100) ~ '...' %}
 
         {% if description %}
           <div class="c-accl-post-thumb__description">
