@@ -16,6 +16,12 @@ body#top #wrap_all .all_colors .widgettitle {
     font-size: 14px;
     font-weight: 600;
 }
+body p {
+    line-height: 1.65em;
+}
+h1{
+    font-size: 35px !important;
+}
 .entry-content-header{
     padding: 6px 0 ;
 }
@@ -820,7 +826,7 @@ a {
 .c-container--flex{
     display:flex;
 }
-.u-flex-g--t{
+.u-flex-g--t {
     gap: 6px
 }
 .u-flex-g--s{
@@ -882,6 +888,47 @@ a {
 .u-mt-l {
     margin-top: 48px;
 }
+
+.u-flex-g-t{
+    gap: 12px
+}
+
+.u-flex-g-s{
+    gap: 12px
+}
+
+.u-flex-g-m{
+    gap: 24px
+}
+
+.u-flex-g-l{
+    gap: 48px
+}
+
+.u-flex-g-h{
+    gap: 96px
+}
+
+.u-fw-4{
+    font-weight: 400 !important;
+}
+.u-fw-5{
+    font-weight: 500 !important;
+}
+.u-fw-6{
+    font-weight: 600 !important;
+}
+.u-fw-7{
+    font-weight: 700 !important;
+}
+.u-fw-8{
+    font-weight: 800 !important;
+}
+
+.u-fw-7{
+    font-weight: 900 !important;
+}
+
 
 .modaal-container{
 
