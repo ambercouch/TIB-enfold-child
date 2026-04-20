@@ -744,4 +744,8 @@ function enqueue_limit_primary_issues_script() {
 add_action('wp_enqueue_scripts', 'enqueue_limit_primary_issues_script');
 
 
+
+
+
+require_once (get_stylesheet_directory() . '/functions/tib-10to8-admin.php');
 require_once (get_stylesheet_directory() . '/functions/tib-10to8.php');
