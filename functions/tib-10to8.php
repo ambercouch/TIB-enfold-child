@@ -171,7 +171,7 @@ function tib_10to8_fetch_service_meta(array $service_uris): array {
         foreach ($locations as &$L) { $L = rtrim($L, '/') . '/'; } unset($L);
 
         $val = ['locations' => $locations, 'staff' => (isset($body['staff']) && is_array($body['staff'])) ? $body['staff'] : []];
-        tib_10to8_set_transient($ckey, $val, 10 * MINUTE_IN_SECONDS);
+        tib_10to8_set_transient($ckey, $val, defined('TIB_10TO8_SERVICE_META_TTL') ? TIB_10TO8_SERVICE_META_TTL : 600 );
         $req_meta[$svc] = $val;
         $out[$svc] = $val;
     }
@@ -337,7 +337,7 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
         if (empty($all_slots)) {
             // Only negative-cache when we truly observed 200 OK responses with zero results.
             if ($saw_200) {
-                tib_10to8_set_transient($cache_key, null, 5 * MINUTE_IN_SECONDS);
+                tib_10to8_set_transient($cache_key, null, defined('TIB_10TO8_NO_SLOT_TTL') ? TIB_10TO8_NO_SLOT_TTL  : 300);
                 tib_10to8_dbg('WRITE null -> '.$cache_key.' (ttl 5m)');
             }
             return null;
@@ -384,7 +384,7 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
         tib_10to8_request_memo_set($cache_key, $out);
         tib_10to8_dbg('WRITE slot  -> '.$cache_key.' '.$out['start_iso'].' ('.$out['date'].' '.$out['time'].')');
-        tib_10to8_set_transient($cache_key, $out, 10 * MINUTE_IN_SECONDS);
+        tib_10to8_set_transient($cache_key, $out, defined(' TIB_10TO8_SLOT_TTL') ?  TIB_10TO8_SLOT_TTL  : 300);
         return $out;
     }}
 /* ========== cached getter (no network) ========== */
