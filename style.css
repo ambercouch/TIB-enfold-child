@@ -249,6 +249,15 @@ svg a:hover{
     max-width: 100%;
 }
 
+#tibcorpjig2026 svg{
+    position: relative;
+    left: 4.5%;
+    width: 680px;
+    margin: 0 auto;
+    display: block;
+    max-width: 100%;
+}
+
 .post-format-standard .slide-meta,
 .post-format-audio .slide-meta{
     display: none !important;
@@ -1332,3 +1341,417 @@ button:hover {
     display: block;
     color: #2c5b88;
 }
+
+/*
+ * .c-list--boxed-items
+ */
+.c-list--boxed-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 48px;
+}
+
+.c-list--boxed-items li {
+    margin: 0;
+
+    flex: 0 1 calc(33.333% - 1.5rem); /* 3 columns */
+    max-width: 360px;
+    min-width: 240px;
+    list-style: none;
+    height: auto;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .c-list--boxed-items {
+        gap: 1rem;
+    }
+
+    .c-list--boxed-items li {
+        flex-basis: calc(50% - 1rem); /* 2 per row */
+        min-width: 0;
+
+    }
+}
+
+/* Card */
+.c-list--boxed-items li > * {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    height: 100%;
+    padding: 2rem 1.5rem !important;
+    text-align: center;
+    text-decoration: none;
+
+    background-color: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+
+    transition:
+            box-shadow 0.2s ease,
+            transform 0.2s ease,
+            border-color 0.2s ease;
+}
+
+.c-list--boxed-items li > * > span {
+    margin: 0 0 0.5rem !important;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #1f2933;
+    display: block !important;
+}
+
+.c-list--boxed-items a {
+    font-size: 0.95rem;
+    color: #4b5563;
+}
+
+.c-list--boxed-items li > *:hover,
+.c-list--boxed-items li > *:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+
+.u-bob-1{
+    position: relative;
+    z-index: 1;
+}
+
+.u-bob-1:after{
+    position: absolute;
+    content: '';
+    width: 200vw;
+    right: 50%;
+    top: 0;
+    height: 100%;
+    display: block;
+    background: #f9f9f9;
+    z-index: -1;
+    transform: translate( 50%, 0 );
+}
+.modaal-wrapper .c-acsm__content{
+ color : #2c5c88;
+
+}
+
+
+.modaal-wrapper .modaal-container{
+    background: #f9f9f9 !important;
+}
+
+.modaal-wrapper .c-ascm-modal--corp-service .c-acsm__content ul{
+    margin-top: 1em;
+
+}
+.modaal-wrapper .c-ascm-modal--corp-service .c-acsm__content li{
+    list-style: disc;
+    margin: 0 0 0.5em 1em;
+    padding: 0 3px;
+}
+
+.modaal-wrapper .c-ascm-modal--corp-service .c-acsm__content h2{
+    border-bottom: solid 1px #2c5c88;
+    padding-bottom: 0.5em;
+}
+
+/* Multi-select dropdown wrapper */
+.c-multiselect {
+    position: relative;
+    width: 100%;
+}
+
+/* Toggle button */
+.c-multiselect__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+}
+
+/* Simple chevron */
+.c-multiselect__toggle::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    margin-left: 10px;
+}
+
+.c-multiselect.is-open .c-multiselect__toggle::after {
+    transform: rotate(-135deg);
+}
+
+/* Panel */
+.c-multiselect__panel {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    width: 100%;
+    z-index: 50;
+
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+
+    max-height: 240px;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+/* Multi-select dropdown wrapper */
+.c-multiselect {
+    position: relative;
+    width: 100%;
+}
+
+/* Toggle button */
+.c-multiselect__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+}
+
+/* Simple chevron */
+.c-multiselect__toggle::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    margin-left: 10px;
+}
+
+.c-multiselect.is-open .c-multiselect__toggle::after {
+    transform: rotate(-135deg);
+}
+
+/* Panel */
+.c-multiselect__panel {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    width: 100%;
+    z-index: 50;
+
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+
+    max-height: 240px;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+/* Multi-select dropdown wrapper */
+.c-multiselect {
+    position: relative;
+    width: 100%;
+}
+
+/* Toggle button */
+.c-multiselect__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+}
+
+/* Simple chevron */
+.c-multiselect__toggle::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    margin-left: 10px;
+}
+
+.c-multiselect.is-open .c-multiselect__toggle::after {
+    transform: rotate(-135deg);
+}
+
+/* Panel */
+.c-multiselect__panel {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    width: 100%;
+    z-index: 50;
+
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+
+    max-height: 240px;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+/* Fieldset reset (theme styles often mess with dropdown feel) */
+.c-contact-form__fieldset--check-dropdown {
+    border: 0;
+    padding: 0;
+    margin: 0 0 20px 0;
+    min-width: 0;
+}
+
+.c-contact-form__legend {
+    display: block;
+    margin: 0 0 6px 0;
+    padding: 0;
+}
+
+/* Multiselect */
+.c-multiselect {
+    position: relative;
+    width: 100%;
+}
+
+/* Make the toggle look like your other inputs */
+.c-multiselect__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.2;
+
+    /* avoid theme button styling */
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+    color : #889095 !important;
+}
+
+/* Chevron */
+.c-multiselect__toggle::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    flex: 0 0 auto;
+    margin-left: 12px;
+}
+
+.c-multiselect.is-open .c-multiselect__toggle::after {
+    transform: rotate(-135deg);
+}
+
+/* Panel – this is the actual dropdown */
+.c-multiselect__panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 9999;
+
+    background: #fff;
+    border: 1px solid #ccc;
+
+    padding: 10px 12px;
+    box-sizing: border-box;
+
+    max-height: 260px;
+    overflow: auto;
+
+    /* dropdown feel */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+}
+
+/* If opened upwards (optional, see JS below) */
+.c-multiselect.is-open-up .c-multiselect__panel {
+    top: auto;
+    bottom: calc(100% + 6px);
+}
+
+/* Remove weird CF7 wrapper spacing inside the panel */
+.c-multiselect__panel .c-contact-form__input-wrapper {
+    display: block;
+}
+
+/* CF7 checkbox list styling */
+.c-multiselect .wpcf7-form-control.wpcf7-checkbox {
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+
+.c-multiselect .wpcf7-list-item {
+    display: block;
+    margin: 0 0 10px 0;
+}
+
+.c-multiselect .wpcf7-list-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Make labels behave nicely */
+.c-multiselect .wpcf7-list-item label {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+/* Checkbox sizing (you already had something similar) */
+.c-multiselect .wpcf7-list-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0 0;
+    flex: 0 0 auto;
+}
+
+/* Optional: tighten label text */
+.c-multiselect .wpcf7-list-item .wpcf7-list-item-label {
+    line-height: 1.3;
+}
+
+/* Critical: allow the dropdown to escape form rows if any parent clips it */
+.c-contact-form__content,
+.c-contact-form__label {
+    overflow: visible;
+}
+
+
+
