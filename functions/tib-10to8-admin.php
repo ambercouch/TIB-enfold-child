@@ -19,7 +19,7 @@ function tib_10to8_get_staff_choices(): array {
     if ($cached !== false && is_array($cached)) return $cached;
 
     $headers = [
-        'Authorization' => 'Token ' . $api_key, // switch to 'Bearer ' . $api_key if needed
+        'Authorization' => 'Token ' . $api_key, // switch to 'Bearer '  . $api_key if needed
         'Accept'        => 'application/json',
     ];
 
@@ -89,14 +89,15 @@ function tib_10to8_get_staff_choices(): array {
 /**
  * ACF: populate choices for the select field "staff_link"
  */
-add_filter('acf/load_field/name=staff_link', function($field) {
+add_filter('acf/load_field/name=staff_link', function ($field) {
     $choices = tib_10to8_get_staff_choices();
-    // Show "(ID)" next to name to help avoid mistakes
-    $field['choices'] = array_map(
-        function($name, $id){ return $name . ' (' . $id . ')'; },
-        $choices,
-        array_keys($choices)
-    );
+
+    $field['choices'] = [];
+
+    foreach ($choices as $id => $name) {
+        $field['choices'][(string) $id] = $name . ' (' . $id . ')';
+    }
+
     return $field;
 });
 
