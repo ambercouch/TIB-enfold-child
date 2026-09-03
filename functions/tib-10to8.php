@@ -210,79 +210,140 @@ function tib_10to8_request_memo_set(string $key, $val): void {
 if (!function_exists('tib_get_next_10to8_slot_multi')) {
     function tib_get_next_10to8_slot_multi($service_ids, $staff_id, $days_ahead = 60) {
         $api_key = defined('TIB_10TO8_API_KEY') ? TIB_10TO8_API_KEY : '';
-        if (!$api_key) return new WP_Error('tib_10to8_config', 'Missing API key');
+        if (!$api_key) {
+            return new WP_Error('tib_10to8_config', 'Missing API key');
+        }
 
         $debug = defined('TIB_10TO8_DEBUG') && TIB_10TO8_DEBUG;
 
         // Normalize and key
-        [$cache_key, $service_uris, $staff_uri, $days_ahead] = tib_10to8_build_cache_key($service_ids, $staff_id, (int)$days_ahead);
-        if (!$staff_uri || !$service_uris) return new WP_Error('tib_10to8_config', 'Bad staff or service list');
+        [$cache_key, $service_uris, $staff_uri, $days_ahead] =
+            tib_10to8_build_cache_key($service_ids, $staff_id, (int) $days_ahead);
 
-        tib_10to8_dbg('key='.$cache_key.' staff='.$staff_uri.' off='.(tib_10to8_cache_disabled()?'1':'0').' flush='.(tib_10to8_request_flush()?'1':'0'));
+        if (!$staff_uri || !$service_uris) {
+            return new WP_Error('tib_10to8_config', 'Bad staff or service list');
+        }
+
+        tib_10to8_dbg(
+            'key=' . $cache_key .
+            ' staff=' . $staff_uri .
+            ' off=' . (tib_10to8_cache_disabled() ? '1' : '0') .
+            ' flush=' . (tib_10to8_request_flush() ? '1' : '0')
+        );
 
         // Request-local memo
-        if (($memo = tib_10to8_request_memo_get($cache_key)) !== null) { tib_10to8_dbg('MEMO HIT -> '.$cache_key); return $memo; }
+        if (($memo = tib_10to8_request_memo_get($cache_key)) !== null) {
+            tib_10to8_dbg('MEMO HIT -> ' . $cache_key);
+            return $memo;
+        }
 
         // Cache read
-        if (!$debug && !$GLOBALS['_tib_emit_cache_msg_once'] && $debug) { $GLOBALS['_tib_emit_cache_msg_once']=true; }
         $cached = tib_10to8_get_transient($cache_key);
+
         if ($cached !== false) {
-            if ($debug) echo "\n<!-- 10to8[MULTI] cache HIT key=$cache_key -->\n";
+            if ($debug) {
+                echo "\n<!-- 10to8[MULTI] cache HIT key={$cache_key} -->\n";
+            }
+
             return $cached;
-        } else {
-            if ($debug) echo tib_10to8_request_flush()
+        }
+
+        if ($debug) {
+            echo tib_10to8_request_flush()
                 ? "\n<!-- 10to8[MULTI] cache FLUSH (bypass read) -->\n"
-                : "\n<!-- 10to8[MULTI] cache MISS key=$cache_key -->\n";
+                : "\n<!-- 10to8[MULTI] cache MISS key={$cache_key} -->\n";
         }
 
         // Global throttle guard
         if (tib_10to8_throttle_active()) {
-            tib_10to8_dbg('GLOBAL THROTTLE active — skip API for '.$cache_key);
-            return null; // do NOT write null
+            tib_10to8_dbg('GLOBAL THROTTLE active — skip API for ' . $cache_key);
+            return null;
         }
 
-        // Prefilter services for this staff (reduces 400s)
+        // Prefilter services for this staff
         $svc_map = tib_10to8_services_offered_by_staff($staff_uri, $service_uris);
+
         if (empty($svc_map)) {
             tib_10to8_dbg('prefilter empty; falling back to all services');
+
             $meta_all = tib_10to8_fetch_service_meta($service_uris);
+
             foreach ($service_uris as $svc_uri) {
                 $locs = $meta_all[$svc_uri]['locations'] ?? [];
-                if ($locs) $svc_map[$svc_uri] = ['locations' => $locs];
+
+                if ($locs) {
+                    $svc_map[$svc_uri] = [
+                        'locations' => $locs,
+                    ];
+                }
             }
+
             if (empty($svc_map)) {
                 // Nothing we can call; do not poison cache
                 return null;
             }
         }
 
+        // WordPress timezone
+        $tz = function_exists('wp_timezone')
+            ? wp_timezone()
+            : new DateTimeZone('Europe/London');
+
+        // Search dates in the site's actual timezone
+        $now  = new DateTimeImmutable('now', $tz);
+        $from = $now->format('Y-m-d');
+        $to   = $now
+            ->modify('+' . (int) $days_ahead . ' days')
+            ->format('Y-m-d');
+
         // Request bits
-        $headers = ['Authorization' => 'Token ' . $api_key, 'Accept' => 'application/json'];
-        $from = gmdate('Y-m-d');
-        $to   = gmdate('Y-m-d', strtotime('+'.(int)$days_ahead.' days'));
+        $headers = [
+            'Authorization' => 'Token ' . $api_key,
+            'Accept'        => 'application/json',
+        ];
+
         $slot_base = 'https://app.10to8.com/api/booking/v2/slot/';
 
         $parse_rows = function ($raw) {
             $body = json_decode($raw, true);
-            if (!is_array($body)) return [];
-            if (isset($body['results']) && is_array($body['results'])) return $body['results'];
-            if (array_values($body) === $body) return $body;
+
+            if (!is_array($body)) {
+                return [];
+            }
+
+            if (isset($body['results']) && is_array($body['results'])) {
+                return $body['results'];
+            }
+
+            if (array_values($body) === $body) {
+                return $body;
+            }
+
             return [];
         };
 
         $all_slots = [];
         $saw_200   = false;
-        $made_calls = 0;
-        $last_code = null;
-        $last_count = null;
 
         foreach ($svc_map as $service_uri => $info) {
-            $locations = isset($info['locations']) && is_array($info['locations']) ? $info['locations'] : [];
-            if (!$locations) continue;
+            $locations = isset($info['locations']) && is_array($info['locations'])
+                ? $info['locations']
+                : [];
+
+            if (!$locations) {
+                continue;
+            }
 
             foreach ($locations as $loc_uri) {
-                if (tib_10to8_throttle_active()) { tib_10to8_dbg('GLOBAL THROTTLE mid-loop'); break 2; }
-                if (!tib_10to8_budget_take(1))   { tib_10to8_dbg('BUDGET mid-loop stop');   break 2; }
+                if (tib_10to8_throttle_active()) {
+                    tib_10to8_dbg('GLOBAL THROTTLE mid-loop');
+                    break 2;
+                }
+
+                if (!tib_10to8_budget_take(1)) {
+                    tib_10to8_dbg('BUDGET mid-loop stop');
+                    break 2;
+                }
 
                 $url = add_query_arg([
                     'service'    => $service_uri,
@@ -294,40 +355,71 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
                 ], $slot_base);
 
                 $t0 = microtime(true);
-                $resp = wp_remote_get($url, ['headers'=>$headers, 'timeout'=>5, 'decompress'=>false]);
-                $ms  = (int)((microtime(true) - $t0) * 1000);
 
-                if (is_wp_error($resp)) { tib_10to8_dbg('SLOT GET WP_Error ms='.$ms.' url='.$url.' msg='.$resp->get_error_message()); continue; }
+                $resp = wp_remote_get($url, [
+                    'headers'    => $headers,
+                    'timeout'    => 5,
+                    'decompress' => false,
+                ]);
 
-                $code = wp_remote_retrieve_response_code($resp);
-                $raw  = wp_remote_retrieve_body($resp);
-                tib_10to8_dbg('SLOT GET code='.$code.' ms='.$ms.' url='.$url);
+                $ms = (int) ((microtime(true) - $t0) * 1000);
 
-                if ($code === 429) {
-                    $sec = tib_10to8_parse_retry_seconds($raw);
-                    tib_10to8_dbg('SLOT 429 — backoff '.$sec.'s');
-                    tib_10to8_throttle_mark($sec);
-                    return null; // no cache write on throttle
-                }
+                if (is_wp_error($resp)) {
+                    tib_10to8_dbg(
+                        'SLOT GET WP_Error ms=' . $ms .
+                        ' url=' . $url .
+                        ' msg=' . $resp->get_error_message()
+                    );
 
-                if ($code !== 200) {
-                    tib_10to8_dbg('SLOT GET NON200 code='.$code.' peek='.substr(trim((string)$raw), 0, 160));
                     continue;
                 }
 
-                $saw_200 = true; // <-- mark
+                $code = wp_remote_retrieve_response_code($resp);
+                $raw  = wp_remote_retrieve_body($resp);
+
+                tib_10to8_dbg(
+                    'SLOT GET code=' . $code .
+                    ' ms=' . $ms .
+                    ' url=' . $url
+                );
+
+                if ($code === 429) {
+                    $sec = tib_10to8_parse_retry_seconds($raw);
+
+                    tib_10to8_dbg('SLOT 429 — backoff ' . $sec . 's');
+
+                    tib_10to8_throttle_mark($sec);
+
+                    // Never overwrite a good cache because of throttling
+                    return null;
+                }
+
+                if ($code !== 200) {
+                    tib_10to8_dbg(
+                        'SLOT GET NON200 code=' . $code .
+                        ' peek=' . substr(trim((string) $raw), 0, 160)
+                    );
+
+                    continue;
+                }
+
+                $saw_200 = true;
 
                 $rows = $parse_rows($raw);
-                $cnt  = is_array($rows) ? count($rows) : 0;
-                if ($debug) echo "\n<!-- 10to8[MULTI] 200 OK | results: $cnt | URL: $url -->\n";
-                $last_code  = 200; $last_count = $cnt; $made_calls++;
+                $cnt  = count($rows);
+
+                if ($debug) {
+                    echo "\n<!-- 10to8[MULTI] 200 OK | results: {$cnt} | URL: {$url} -->\n";
+                }
 
                 if ($cnt > 0) {
-                    foreach ($rows as &$r) {
-                        $r['_tib_location'] = $r['_tib_location'] ?? $loc_uri;
-                        $r['_tib_service']  = $r['_tib_service']  ?? $service_uri;
+                    foreach ($rows as &$row) {
+                        $row['_tib_location'] = $row['_tib_location'] ?? $loc_uri;
+                        $row['_tib_service']  = $row['_tib_service'] ?? $service_uri;
                     }
-                    unset($r);
+
+                    unset($row);
+
                     $all_slots = array_merge($all_slots, $rows);
                 }
             }
@@ -335,58 +427,139 @@ if (!function_exists('tib_get_next_10to8_slot_multi')) {
 
         // No slots found
         if (empty($all_slots)) {
-            // Only negative-cache when we truly observed 200 OK responses with zero results.
+            // Only negative-cache if we actually received successful API responses
             if ($saw_200) {
-                tib_10to8_set_transient($cache_key, null, defined('TIB_10TO8_NO_SLOT_TTL') ? TIB_10TO8_NO_SLOT_TTL  : 300);
-                tib_10to8_dbg('WRITE null -> '.$cache_key.' (ttl 5m)');
+                $ttl = defined('TIB_10TO8_NO_SLOT_TTL')
+                    ? (int) TIB_10TO8_NO_SLOT_TTL
+                    : 300;
+
+                tib_10to8_set_transient($cache_key, null, $ttl);
+
+                tib_10to8_dbg(
+                    'WRITE null -> ' . $cache_key . ' (ttl ' . $ttl . 's)'
+                );
             }
+
             return null;
         }
 
-        // Detect time fields (tenant may use start_datetime)
+        // Detect time fields
         $first = $all_slots[0];
-        $detect_key = function(array $row, array $cands){
+
+        $detect_key = function (array $row, array $candidates) {
             $lower = array_change_key_case($row, CASE_LOWER);
-            foreach ($cands as $c) {
-                $c2 = strtolower($c);
-                if (array_key_exists($c2, $lower))
-                    foreach ($row as $k=>$v) if (strtolower($k) === $c2) return $k;
+
+            foreach ($candidates as $candidate) {
+                $candidate_lower = strtolower($candidate);
+
+                if (!array_key_exists($candidate_lower, $lower)) {
+                    continue;
+                }
+
+                foreach ($row as $key => $value) {
+                    if (strtolower($key) === $candidate_lower) {
+                        return $key;
+                    }
+                }
             }
+
             return null;
         };
-        $start_key = $detect_key($first, ['start_datetime','start','start_dt','start_at','datetime','begin']);
-        $end_key   = $detect_key($first,   ['end_datetime','end','end_dt','end_at','datetime_end','finish']);
-        if (!$start_key) { tib_10to8_dbg('no start key detected'); return null; }
 
-        usort($all_slots, function($a,$b) use($start_key){
-            $as = isset($a[$start_key]) ? strtotime($a[$start_key]) : PHP_INT_MAX;
-            $bs = isset($b[$start_key]) ? strtotime($b[$start_key]) : PHP_INT_MAX;
+        $start_key = $detect_key($first, [
+            'start_datetime',
+            'start',
+            'start_dt',
+            'start_at',
+            'datetime',
+            'begin',
+        ]);
+
+        $end_key = $detect_key($first, [
+            'end_datetime',
+            'end',
+            'end_dt',
+            'end_at',
+            'datetime_end',
+            'finish',
+        ]);
+
+        if (!$start_key) {
+            tib_10to8_dbg('no start key detected');
+            return null;
+        }
+
+        // Sort by actual timestamp so timezone offsets are respected
+        usort($all_slots, function ($a, $b) use ($start_key) {
+            $as = isset($a[$start_key])
+                ? strtotime($a[$start_key])
+                : PHP_INT_MAX;
+
+            $bs = isset($b[$start_key])
+                ? strtotime($b[$start_key])
+                : PHP_INT_MAX;
+
             return $as <=> $bs;
         });
 
-        $next      = $all_slots[0];
-        $start_iso = $next[$start_key];
-        $end_iso   = ($end_key && isset($next[$end_key])) ? $next[$end_key] : null;
+        $next = $all_slots[0];
 
-        $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('Europe/London');
-        try { $when = (new DateTimeImmutable($start_iso))->setTimezone($tz); }
-        catch (Exception $e) { $when = (new DateTimeImmutable($start_iso.'Z'))->setTimezone($tz); }
+        $start_iso = $next[$start_key];
+        $end_iso   = ($end_key && isset($next[$end_key]))
+            ? $next[$end_key]
+            : null;
+
+        try {
+            // Respect the timezone/offset supplied by 10to8,
+            // then convert into the WordPress timezone.
+            $when = (new DateTimeImmutable($start_iso))
+                ->setTimezone($tz);
+        } catch (Exception $e) {
+            tib_10to8_dbg(
+                'Invalid slot datetime: ' . $start_iso .
+                ' error=' . $e->getMessage()
+            );
+
+            return null;
+        }
 
         $out = [
             'slot_id'     => $next['id'] ?? null,
             'start_iso'   => $start_iso,
             'end_iso'     => $end_iso,
             'start_local' => $when->format('Y-m-d H:i'),
-            'date'        => wp_date('D j M Y', $when->getTimestamp(), $tz),
-            'time'        => wp_date('H:i',      $when->getTimestamp(), $tz),
+            'date'        => wp_date(
+                'D j M Y',
+                $when->getTimestamp(),
+                $tz
+            ),
+            'time'        => wp_date(
+                'H:i',
+                $when->getTimestamp(),
+                $tz
+            ),
             'raw'         => $next,
         ];
 
         tib_10to8_request_memo_set($cache_key, $out);
-        tib_10to8_dbg('WRITE slot  -> '.$cache_key.' '.$out['start_iso'].' ('.$out['date'].' '.$out['time'].')');
-        tib_10to8_set_transient($cache_key, $out, defined(' TIB_10TO8_SLOT_TTL') ?  TIB_10TO8_SLOT_TTL  : 300);
+
+        tib_10to8_dbg(
+            'WRITE slot -> ' .
+            $cache_key . ' ' .
+            $out['start_iso'] . ' (' .
+            $out['date'] . ' ' .
+            $out['time'] . ')'
+        );
+
+        $ttl = defined('TIB_10TO8_SLOT_TTL')
+            ? (int) TIB_10TO8_SLOT_TTL
+            : 300;
+
+        tib_10to8_set_transient($cache_key, $out, $ttl);
+
         return $out;
-    }}
+    }
+}
 /* ========== cached getter (no network) ========== */
 
 function tib_get_next_10to8_slot_multi_cached($service_ids, $staff_id, $days_ahead = 60) {
