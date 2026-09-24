@@ -26,11 +26,20 @@
       {% endif %}
       <hr class="u-mt">
       #}
-      {% if post.meta('staff_link') %}
-        <p class="u-mt-0" >Book a session with {{ post.title | split(' ') | first }}</p>
-        <p>
-          <a class="c-btn c-btn--book" href="{{ post.meta('staff_link') }}" >Book Now</a>
-        </p>
+      {% if raw_staff %}
+        {% set booking_url = fn('tib_10to8_staff_booking_url', raw_staff) %}
+
+        {% if booking_url %}
+          <p class="u-mt-0">
+            Book a session with {{ post.title | split(' ') | first }}
+          </p>
+
+          <p>
+            <a class="c-btn c-btn--book" href="{{ booking_url }}">
+              Book Now
+            </a>
+          </p>
+        {% endif %}
       {% endif %}
     </div><!-- .post-thumbnail -->
     {% endif %}

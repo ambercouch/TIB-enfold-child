@@ -73,12 +73,35 @@ function tib_10to8_budget_take(int $n = 1): bool {
 
 /* ========== ID + URL helpers ========== */
 
+/**
+ * Extract a 10to8 numeric ID from either:
+ *
+ * 453944
+ * https://app.10to8.com/book/.../staff/453944/
+ * https://app.10to8.com/api/booking/v2/staff/453944/
+ */
 function tib_10to8_extract_id($value): ?string {
-    if (!$value) return null;
-    $s = trim((string) $value);
-    if ($s === '') return null;
-    if (ctype_digit($s)) return $s;
-    return (preg_match('~/(\d+)/?$~', $s, $m)) ? $m[1] : null;
+    if (!$value) {
+        return null;
+    }
+
+    $value = trim((string) $value);
+
+    if ($value === '') {
+        return null;
+    }
+
+    // Already a numeric ID
+    if (ctype_digit($value)) {
+        return $value;
+    }
+
+    // Extract final numeric path segment
+    if (preg_match('~/(\d+)/?$~', $value, $matches)) {
+        return $matches[1];
+    }
+
+    return null;
 }
 function tib_10to8_staff_to_uri($value): ?string {
     $id = tib_10to8_extract_id($value);
@@ -88,9 +111,27 @@ function tib_10to8_service_to_uri($value): ?string {
     $id = tib_10to8_extract_id($value);
     return $id ? "https://app.10to8.com/api/booking/v2/service/{$id}/" : null;
 }
-function tib_10to8_staff_booking_url(string $staff_id): ?string {
-    if (!defined('TIB_10TO8_BOOK_SLUG') || !TIB_10TO8_BOOK_SLUG) return null;
-    return sprintf('https://app.10to8.com/book/%s/staff/%s/', TIB_10TO8_BOOK_SLUG, $staff_id);
+/**
+ * Generate the public 10to8 booking URL for a staff member.
+ *
+ * Accepts either the numeric staff ID or an old booking/API URL.
+ */
+function tib_10to8_staff_booking_url($staff): ?string {
+    if (!defined('TIB_10TO8_BOOK_SLUG') || !TIB_10TO8_BOOK_SLUG) {
+        return null;
+    }
+
+    $staff_id = tib_10to8_extract_id($staff);
+
+    if (!$staff_id) {
+        return null;
+    }
+
+    return sprintf(
+        'https://app.10to8.com/book/%s/staff/%s/',
+        TIB_10TO8_BOOK_SLUG,
+        $staff_id
+    );
 }
 
 /* ========== service list (override with a filter) ========== */
