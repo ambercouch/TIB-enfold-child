@@ -269,7 +269,7 @@ if( function_exists('acf_add_local_field_group') ):
                 'required' => 0,
             ),
             array(
-                'key' => 'field_short_description',
+                'key' => 'field_document_short_description',
                 'label' => 'Short Description',
                 'name' => 'short_description',
                 'type' => 'textarea',

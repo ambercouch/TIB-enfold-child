@@ -9,7 +9,7 @@
       <?php endif; ?>
     <header  class="entry-header c-staff-notice__header">
       <h3 class="entry-title c-staff-notice__heading">
-        <a href="<?php esc_url( get_permalink() ) ?>" class="c-staff-notice__link" rel="bookmark">
+        <a href="<?php echo esc_url( get_permalink() ); ?>" class="c-staff-notice__link" rel="bookmark">
           <span class="c-staff-notice__link-title"><?php the_title() ?></span>
         </a>
       </h3>
