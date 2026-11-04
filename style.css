@@ -1935,3 +1935,24 @@ button:hover {
 @media only screen and (max-width:767px){
     #top.home #main .tib-home-section > .container{ max-width:none; padding-left:24px; padding-right:24px; }
 }
+
+/* Intro statements are paragraphs with their own typography, independent of heading styles. */
+#top.home .tib-home-intro-lead{ color:#2c5d88; font-size:26px; line-height:1.4; font-weight:400; text-align:center; margin:0 0 20px; }
+#top.home .tib-home-intro-locations{ font-size:inherit; line-height:1.65; font-weight:700; text-align:center; }
+/* Keep one mobile spacing rhythm instead of stacking section, block and spacer padding. */
+@media only screen and (max-width:767px){
+    #top.home .tib-home-section > .container > .content{ padding-top:32px; padding-bottom:32px; }
+    #top.home .tib-home-section .av_textblock_section,
+    #top.home .tib-home-section .avia_codeblock_section,
+    #top.home .tib-home-section .c-text--booking-widget{ padding-top:0; padding-bottom:0; }
+    #top.home .tib-home-spacer--booking-end{ height:0 !important; margin-top:0; margin-bottom:0; }
+    #top.home .tib-home-section--services .c-accl-post-list{ padding-bottom:0; margin-bottom:0 !important; }
+    #top.home .tib-home-section--services .c-accl-post-list__post-thumb--therapist-deets:last-child{ margin-bottom:0; }
+    #top.home #wrap_all .tib-home-section--services .flex_column:not(.first){ margin-bottom:0; }
+}
+/* Clear field boundaries on both Contact Form 7 and remaining Enfold contact forms. */
+#top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input[type=text],input[type=email],input[type=tel],input[type=url],input[type=number],input[type=date],input[type=time],textarea,select){ border:1px solid #7890a3; background-color:#f6f9fb; color:#243d4b; }
+#top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input,textarea)::placeholder{ color:#647582; opacity:1; }
+#top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input:not([type=submit]),textarea,select):focus-visible{ border-color:#2c5c88; outline:2px solid #2c5c88; outline-offset:2px; }
+#top #wrap_all .wpcf7 :is(input,textarea,select)[aria-invalid=true],
+#top #wrap_all .avia_ajax_form :is(input,textarea,select).error{ border-color:#b23939; }
