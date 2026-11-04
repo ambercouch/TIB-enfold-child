@@ -1922,3 +1922,16 @@ button:hover {
 #top #booking-enquiry #booking-contact-form{ padding:0; }
 
 #top #home-enquiry{ padding:0; }
+
+/* Home content uses one gutter; text/form sections are narrower than desktop column layouts. */
+#top.home #main .tib-home-section{ --tib-home-content-width:960px; }
+#top.home #main .tib-home-section--wide{ --tib-home-content-width:1310px; }
+#top.home #main .tib-home-section > .container{ box-sizing:border-box; width:100%; max-width:var(--tib-home-content-width); padding-left:32px; padding-right:32px; }
+#top.home .tib-home-section .av_textblock_section,
+#top.home .tib-home-section .avia_codeblock_section,
+#top.home .tib-home-section .c-text--booking-widget{ padding-left:0; padding-right:0; }
+#top.home .tib-home-section--wide .av_one_full{ float:none; width:100%; max-width:896px; margin-left:auto; margin-right:auto; }
+#top.home .tib-home-section--newsletter .c-mchimp-signup__form{ padding-left:16px; padding-right:16px; }
+@media only screen and (max-width:767px){
+    #top.home #main .tib-home-section > .container{ max-width:none; padding-left:24px; padding-right:24px; }
+}
