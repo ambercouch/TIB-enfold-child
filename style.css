@@ -1868,3 +1868,91 @@ button:hover {
     }
 }
 
+
+/* Booking and navigation updates: 4 November 2026. */
+
+/* Keep the existing booking link beside search when the navigation collapses. */
+@media only screen and (max-width:1160px){
+    #top #header .av-main-nav > #menu-item-6075{ display:block !important; }
+}
+@media only screen and (max-width:767px){
+    #top #header_main .logo{ max-width:calc(100% - 170px); }
+    #top #header_main .logo img{ max-width:100%; object-fit:contain; }
+    #top #header_main .main_menu .av-main-nav > #menu-item-6075 > a{ padding-left:0; }
+    #top #header_main .main_menu .av-main-nav > #menu-item-6075 .avia-menu-text{ padding:10px 9px; color:#fff !important; background:#2c5c88; }
+    #top #header_main .main_menu .av-main-nav > #menu-item-search > a,
+    #top #header_main .main_menu .av-main-nav > .av-burger-menu-main > a{ padding-left:14px; }
+}
+
+/* Retain the mobile header while scrolling, matching the desktop sticky header. */
+@media only screen and (max-width:767px){
+    .responsive #top #wrap_all #header{ position:fixed; top:0; }
+    .responsive #top #wrap_all #main{ padding-top:82px !important; }
+    #top #header_main .main_menu .av-main-nav > li > a{ height:80px !important; line-height:80px !important; }
+    #top #header #menu-item-6075 > a:focus-visible{ outline:3px solid #a85b00; outline-offset:-3px; }
+    .responsive #top.admin-bar #wrap_all #header{ top:46px; }
+}
+
+/* The booking plugin suppresses inherited-colour links globally; restore these text links. */
+#top .tib-booking-method a{ color:#005db3; text-decoration:underline !important; text-underline-offset:0.15em; }
+#top .tib-booking-method a:hover,
+#top .tib-booking-method a:focus-visible{ color:#173b53; text-decoration:underline !important; }
+#top .tib-booking-method a:focus-visible{ outline:2px solid #a85b00; outline-offset:3px; }
+
+/* Contact Form 7 replacement for the booking page's original Enfold form. */
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7{ margin:0 0 20px; width:100%; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7__field{ margin:0 0 8px; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 label,
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 .wpcf7-form-control-wrap{ display:block; margin:0; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input[type=text],
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input[type=email],
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 textarea{ box-sizing:border-box; display:block; width:100%; margin:0; padding:13px; border:1px solid #e1e1e1; border-radius:2px; background:#fff; color:#889095; font:15px/22.5px HelveticaNeue,"Helvetica Neue",Helvetica,Arial,sans-serif; text-align:left; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input[type=text],
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input[type=email]{ height:45px; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 textarea{ height:185.5px; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input::placeholder,
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 textarea::placeholder{ color:#889095; opacity:1; text-align:left; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7__submit{ position:relative; margin:0; text-align:center; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input[type=submit]{ min-width:142px; height:48px; margin:0; padding:16px 20px; border:0; border-radius:2px; background:#2c5c88; color:#fff; font:13.8px Arial,sans-serif; cursor:pointer; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 input[type=submit]:hover{ background:#173b53; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 .wpcf7-spinner{ position:absolute; top:12px; margin:0 12px; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7__recaptcha{ margin:10px 0 0; color:#889095; font-size:11px; text-align:center; }
+#top :is(#booking-enquiry,#home-enquiry) .tib-booking-cf7 :is(input,textarea):focus-visible{ outline:2px solid #2c5c88; outline-offset:2px; }
+
+#top #booking-enquiry #booking-contact-form{ padding:0; }
+
+#top #home-enquiry{ padding:0; }
+
+/* Home content uses one gutter; text/form sections are narrower than desktop column layouts. */
+#top.home #main .tib-home-section{ --tib-home-content-width:960px; }
+#top.home #main .tib-home-section--wide{ --tib-home-content-width:1310px; }
+#top.home #main .tib-home-section > .container{ box-sizing:border-box; width:100%; max-width:var(--tib-home-content-width); padding-left:32px; padding-right:32px; }
+#top.home .tib-home-section .av_textblock_section,
+#top.home .tib-home-section .avia_codeblock_section,
+#top.home .tib-home-section .c-text--booking-widget{ padding-left:0; padding-right:0; }
+#top.home .tib-home-section--wide .av_one_full{ float:none; width:100%; max-width:896px; margin-left:auto; margin-right:auto; }
+#top.home .tib-home-section--newsletter .c-mchimp-signup__form{ padding-left:16px; padding-right:16px; }
+@media only screen and (max-width:767px){
+    #top.home #main .tib-home-section > .container{ max-width:none; padding-left:24px; padding-right:24px; }
+}
+
+/* Intro statements are paragraphs with their own typography, independent of heading styles. */
+#top.home .tib-home-intro-lead{ color:#2c5d88; font-size:26px; line-height:1.4; font-weight:400; text-align:center; margin:0 0 20px; }
+#top.home .tib-home-intro-locations{ font-size:inherit; line-height:1.65; font-weight:700; text-align:center; }
+/* Keep one mobile spacing rhythm instead of stacking section, block and spacer padding. */
+@media only screen and (max-width:767px){
+    #top.home .tib-home-section > .container > .content{ padding-top:32px; padding-bottom:32px; }
+    #top.home .tib-home-section .av_textblock_section,
+    #top.home .tib-home-section .avia_codeblock_section,
+    #top.home .tib-home-section .c-text--booking-widget{ padding-top:0; padding-bottom:0; }
+    #top.home .tib-home-spacer--booking-end{ height:0 !important; margin-top:0; margin-bottom:0; }
+    #top.home .tib-home-section--services .c-accl-post-list{ padding-bottom:0; margin-bottom:0 !important; }
+    #top.home .tib-home-section--services .c-accl-post-list__post-thumb--therapist-deets:last-child{ margin-bottom:0; }
+    #top.home #wrap_all .tib-home-section--services .flex_column:not(.first){ margin-bottom:0; }
+}
+/* Clear field boundaries on both Contact Form 7 and remaining Enfold contact forms. */
+#top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input[type=text],input[type=email],input[type=tel],input[type=url],input[type=number],input[type=date],input[type=time],textarea,select){ border:1px solid #7890a3; background-color:#f6f9fb; color:#243d4b; }
+#top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input,textarea)::placeholder{ color:#647582; opacity:1; }
+#top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input:not([type=submit]),textarea,select):focus-visible{ border-color:#2c5c88; outline:2px solid #2c5c88; outline-offset:2px; }
+#top #wrap_all .wpcf7 :is(input,textarea,select)[aria-invalid=true],
+#top #wrap_all .avia_ajax_form :is(input,textarea,select).error{ border-color:#b23939; }
