@@ -1956,3 +1956,8 @@ button:hover {
 #top #wrap_all :is(.wpcf7,.avia_ajax_form) :is(input:not([type=submit]),textarea,select):focus-visible{ border-color:#2c5c88; outline:2px solid #2c5c88; outline-offset:2px; }
 #top #wrap_all .wpcf7 :is(input,textarea,select)[aria-invalid=true],
 #top #wrap_all .avia_ajax_form :is(input,textarea,select).error{ border-color:#b23939; }
+
+/* Give the embedded booking app room for three desktop services without widening its prose. */
+#top.home #main .tib-home-section--booking{ --tib-home-content-width:1310px; }
+#top.home .tib-home-section--booking .c-code--booking-widget{ width:100%; max-width:none; }
+#top.home .tib-home-section--booking .c-text--booking-widget{ width:100%; max-width:896px; }
