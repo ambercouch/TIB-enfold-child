@@ -1961,3 +1961,13 @@ button:hover {
 #top.home #main .tib-home-section--booking{ --tib-home-content-width:1310px; }
 #top.home .tib-home-section--booking .c-code--booking-widget{ width:100%; max-width:none; }
 #top.home .tib-home-section--booking .c-text--booking-widget{ width:100%; max-width:896px; }
+
+/* Match the booking page embed and enquiry gutters to the home page. */
+#top.page-id-5585 #main :is(.tib-book-page-app,#booking-enquiry) > .container{ box-sizing:border-box; width:100%; max-width:1310px; padding-left:32px; padding-right:32px; }
+#top.page-id-5585 #main #booking-enquiry > .container{ max-width:960px; }
+#top.page-id-5585 :is(.tib-book-page-app,#booking-enquiry) :is(.av_textblock_section,.avia_codeblock_section,.c-text--booking-widget){ padding-left:0; padding-right:0; }
+#top.page-id-5585 .tib-book-page-app .c-code--booking-widget{ width:100%; max-width:none; }
+#top.page-id-5585 .tib-book-page-app .c-text--booking-widget{ width:100%; max-width:896px; }
+@media only screen and (max-width:767px){
+    #top.page-id-5585 #main :is(.tib-book-page-app,#booking-enquiry) > .container{ max-width:none; padding-left:24px; padding-right:24px; }
+}
